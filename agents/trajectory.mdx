@@ -1,0 +1,210 @@
+---
+title: "Trajectory Format"
+description: "Optional telemetry for token usage, tool calls, and latency."
+---
+
+After your agent runs, you can write a `trajectory.json` file to `$OUTPUT_DIR` with token usage, tool calls, and latency data. This powers the analytics on your dashboard — cost tracking, token breakdowns, latency percentiles, and tool call patterns.
+
+**It's optional.** Your agent will work fine without it. But if you want to understand what your agent is doing across hundreds of benchmark instances, trajectory data is how you get there.
+
+## The format
+
+We designed `trajectory.json` to be minimal and flexible. Only two fields are required:
+
+```json
+{
+  "schema_version": "1.0",
+  "instance_id": "django__django-11099"
+}
+```
+
+Everything else is optional. Add what you have:
+
+```json
+{
+  "schema_version": "1.0",
+  "instance_id": "django__django-11099",
+  "model": "claude-sonnet-4-6",
+  "total_tokens": 48500,
+  "prompt_tokens": 36000,
+  "completion_tokens": 12500,
+  "total_latency_ms": 95000,
+  "cache_read_tokens": 14000,
+  "cache_write_tokens": 4000,
+  "steps": [
+    {
+      "step": 1,
+      "type": "tool_call",
+      "tool": "Bash",
+      "input": {"command": "find /testbed -name '*.py' | head"},
+      "output_tokens": 42,
+      "latency_ms": 310,
+      "cache_hit": true
+    },
+    {
+      "step": 2,
+      "type": "tool_call",
+      "tool": "Edit",
+      "input": {"file_path": "/testbed/django/forms/widgets.py"},
+      "output_tokens": 89,
+      "latency_ms": 520,
+      "cache_hit": false
+    }
+  ]
+}
+```
+
+## Field reference
+
+### Top-level fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `schema_version` | string | Yes | Always `"1.0"` |
+| `instance_id` | string | Yes | From `$INSTANCE_ID` env var |
+| `model` | string | No | Model name/ID used |
+| `total_tokens` | int | No | prompt_tokens + completion_tokens |
+| `prompt_tokens` | int | No | Total input tokens |
+| `completion_tokens` | int | No | Total output tokens |
+| `total_latency_ms` | int | No | Wall-clock time in milliseconds |
+| `cache_read_tokens` | int | No | Tokens served from cache |
+| `cache_write_tokens` | int | No | Tokens written to cache |
+| `steps` | array | No | Ordered list of agent actions |
+
+### Step fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `step` | int | Yes (if steps) | 1-indexed step number |
+| `type` | string | Yes (if steps) | `"tool_call"`, `"model_call"`, or `"observation"` |
+| `tool` | string | No | Tool name (Bash, Edit, Read, etc.) |
+| `input` | any | No | Input to the tool or model |
+| `output_tokens` | int | No | Tokens produced in this step |
+| `latency_ms` | int | No | Wall-clock time for this step |
+| `cache_hit` | bool | No | Whether this step hit a cache |
+
+## What the dashboard computes
+
+From trajectory data across all instances in a run, the dashboard shows:
+
+- **Resolve rate** — instances solved / total
+- **Token usage** — avg, p50, p95 across instances
+- **Latency** — avg, p50, p95 wall-clock time
+- **Tool calls** — avg per instance, breakdown by tool name
+- **Cache hit rate** — across all steps
+- **Cost** — estimated from token counts and model pricing
+
+## Writing a converter
+
+Your agent probably already logs its output in some format — JSONL events, structured logs, a custom format. You don't need to change your agent. Just write a small converter that runs at the end of `runner.sh` and transforms your agent's native output into `trajectory.json`.
+
+Here's the pattern:
+
+```bash
+#!/bin/bash
+set -uo pipefail
+
+# ... install and run your agent ...
+my-agent --task "$PROBLEM_STATEMENT" \
+  2>"$OUTPUT_DIR/agent_stderr.log" | tee "$OUTPUT_DIR/agent_output.log"
+
+# Convert your agent's output format to trajectory.json
+python3 << 'PYEOF'
+import json, os
+
+output_path = os.environ["OUTPUT_DIR"] + "/agent_output.log"
+traj_path = os.environ["OUTPUT_DIR"] + "/trajectory.json"
+instance_id = os.environ["INSTANCE_ID"]
+
+# Parse your agent's native format
+steps = []
+total_input = 0
+total_output = 0
+
+with open(output_path) as f:
+    for line in f:
+        try:
+            obj = json.loads(line.strip())
+        except (json.JSONDecodeError, ValueError):
+            continue
+        # TODO: adapt this to your agent's event format
+        # Example: extract tool calls and token counts
+
+traj = {
+    "schema_version": "1.0",
+    "instance_id": instance_id,
+    "model": "your-model-name",
+    "total_tokens": total_input + total_output,
+    "prompt_tokens": total_input,
+    "completion_tokens": total_output,
+    "steps": steps,
+}
+json.dump(traj, open(traj_path, "w"), indent=2)
+PYEOF
+```
+
+This converter is a one-time thing. Write it once, and it works for every benchmark run.
+
+## Real examples
+
+### Claude Code (stream-json format)
+
+Claude Code outputs JSONL with `type: "assistant"` and `type: "result"` events:
+
+```python
+messages = []
+result = None
+with open(output_path) as f:
+    for line in f:
+        try:
+            obj = json.loads(line.strip())
+        except json.JSONDecodeError:
+            continue
+        if obj.get("type") == "result":
+            result = obj
+        elif obj.get("type") == "assistant":
+            messages.append(obj)
+
+steps = []
+for msg in messages:
+    for block in msg.get("message", {}).get("content", []):
+        if block.get("type") == "tool_use":
+            steps.append({
+                "step": len(steps) + 1,
+                "type": "tool_call",
+                "tool": block.get("name", ""),
+            })
+
+usage = result.get("usage", {}) if result else {}
+```
+
+### Ante (event stream format)
+
+Ante outputs JSONL with `event.ToolStart` and `event.UsageUpdate`:
+
+```python
+for line in f:
+    obj = json.loads(line.strip())
+    event = obj.get("event", {})
+    if "ToolStart" in event:
+        steps.append({
+            "step": len(steps) + 1,
+            "type": "tool_call",
+            "tool": event["ToolStart"].get("name", ""),
+        })
+    if "UsageUpdate" in event:
+        usage = event["UsageUpdate"].get("usage", {})
+        total_input += usage.get("input_tokens", 0)
+        total_output += usage.get("output_tokens", 0)
+```
+
+## If you have nothing to parse
+
+Write a minimal trajectory so the dashboard has something:
+
+```bash
+echo '{"schema_version":"1.0","instance_id":"'"$INSTANCE_ID"'","total_tokens":0,"steps":[]}' \
+  > "$OUTPUT_DIR/trajectory.json"
+```
+
+Better than nothing — it still tells the dashboard the instance ran.

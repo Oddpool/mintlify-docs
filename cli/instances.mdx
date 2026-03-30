@@ -1,0 +1,50 @@
+---
+title: "benchspan instances"
+description: "List instances and subsets for a benchmark."
+---
+
+## Usage
+
+```bash
+benchspan instances <benchmark>
+```
+
+## What it shows
+
+Lists all available instances and named subsets for a benchmark. Useful for understanding what's in a benchmark before running it, or for selecting specific instances.
+
+## Example
+
+```bash
+benchspan instances agent-healthcheck
+```
+
+Output:
+```
+agent-healthcheck: 10 instances
+
+Subsets:
+  quick       2 instances
+  universal   7 instances
+  coding      3 instances
+  resilience  5 instances
+
+Instances:
+  basic-file-create
+  conda-env
+  echo-answer
+  edit-existing-file
+  ...
+```
+
+## Using with run
+
+Reference instances or subsets in the `--benchmark` selector:
+
+```bash
+# Named subset
+benchspan run --benchmark agent-healthcheck.quick --agent claude-code
+
+# Specific instance
+benchspan run --benchmark agent-healthcheck.echo-answer --agent claude-code
+```

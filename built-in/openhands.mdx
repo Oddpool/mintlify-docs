@@ -1,0 +1,42 @@
+---
+title: "OpenHands"
+description: "Run the OpenHands CLI agent against any benchmark."
+---
+
+## Required env vars
+
+Set these on your [dashboard](https://benchspan.com/dashboard/settings/profile):
+
+| Env Var | Required | Description |
+|---|---|---|
+| `LLM_API_KEY` | Yes | Your LLM provider API key |
+| `LLM_MODEL` | Yes | Model to use (e.g., `claude-haiku-4-5-20251001`) |
+
+## Usage
+
+```bash
+# Run against SWEbench
+benchspan run --benchmark swebench --agent openhands --instances 10
+
+# Quick healthcheck
+benchspan run --benchmark agent-healthcheck.quick --agent openhands
+```
+
+## What it does
+
+The OpenHands runner:
+
+1. Installs the OpenHands CLI binary via their install script
+2. Sets `OPENHANDS_WORK_DIR` to point at the benchmark task directory
+3. Runs OpenHands in headless mode with `--override-with-envs`
+
+## Supported models
+
+OpenHands supports multiple LLM providers. Set `LLM_API_KEY` and `LLM_MODEL` accordingly:
+
+| Provider | `LLM_MODEL` example | `LLM_API_KEY` |
+|---|---|---|
+| Anthropic | `claude-haiku-4-5-20251001` | Your Anthropic key |
+| OpenAI | `gpt-4o` | Your OpenAI key |
+
+See the [OpenHands docs](https://docs.openhands.dev) for the full list of supported models.

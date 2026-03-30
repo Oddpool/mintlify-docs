@@ -1,0 +1,47 @@
+---
+title: "Claude Code"
+description: "Run Anthropic's Claude Code agent against any benchmark."
+---
+
+## Required env vars
+
+Set these on your [dashboard](https://benchspan.com/dashboard/settings/profile):
+
+| Env Var | Required | Description |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | Yes | Your Anthropic API key |
+| `BENCHKIT_MODEL` | No | Model to use (default: `claude-haiku-4-5-20251001`) |
+| `BENCHKIT_MAX_TURNS` | No | Max agent turns (default: `30`) |
+
+## Usage
+
+```bash
+# Run against SWEbench
+benchspan run --benchmark swebench --agent claude-code --instances 10
+
+# Quick healthcheck
+benchspan run --benchmark agent-healthcheck.quick --agent claude-code
+
+# Use a different model
+# (set BENCHKIT_MODEL=claude-sonnet-4-20250514 on your dashboard)
+benchspan run --benchmark swebench --agent claude-code --instances 5
+```
+
+## What it does
+
+The Claude Code runner:
+
+1. Installs Node.js and `@anthropic-ai/claude-code` via npm
+2. Creates a non-root user (Claude Code refuses to run as root)
+3. Runs Claude Code in headless mode with `--output-format stream-json`
+4. Extracts token usage and tool calls into `trajectory.json`
+
+## Changing the model
+
+To switch models, update `BENCHKIT_MODEL` on your [dashboard](https://benchspan.com/dashboard/settings/profile):
+
+| Model | `BENCHKIT_MODEL` value |
+|---|---|
+| Haiku (fast, cheap) | `claude-haiku-4-5-20251001` |
+| Sonnet (balanced) | `claude-sonnet-4-20250514` |
+| Opus (strongest) | `claude-opus-4-20250514` |

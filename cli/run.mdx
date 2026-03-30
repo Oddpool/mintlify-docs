@@ -1,0 +1,73 @@
+---
+title: "benchspan run"
+description: "Run a benchmark with an agent."
+---
+
+## Usage
+
+```bash
+benchspan run --benchmark <selector> --agent <agent> [options]
+```
+
+## Options
+
+| Flag | Description |
+|---|---|
+| `--benchmark` | **Required.** Benchmark selector (see below) |
+| `--agent` | **Required.** Built-in agent name or path to agent directory |
+| `--instances` | Max number of instances to run |
+| `--tag` | Label for filtering runs later |
+| `--parallelism` | Max concurrent containers (default: 5, max: 10) |
+
+## Benchmark selectors
+
+```bash
+# All instances
+benchspan run --benchmark swebench --agent claude-code
+
+# Named subset
+benchspan run --benchmark swebench.django --agent claude-code
+
+# Specific instance
+benchspan run --benchmark swebench.django__django-11099 --agent claude-code
+
+# Multiple instances
+benchspan run --benchmark swebench.django__django-11099,swebench.astropy__astropy-12907 --agent claude-code
+
+# Limit instance count
+benchspan run --benchmark swebench --agent claude-code --instances 10
+```
+
+## Agent resolution
+
+The `--agent` flag accepts either a built-in agent name or a path:
+
+```bash
+# Built-in agent
+benchspan run --benchmark swebench --agent claude-code
+
+# Path to agent directory (must contain runner.sh)
+benchspan run --benchmark swebench --agent ./agents/my-agent
+
+# Path to repo root (build-from-source, must contain runner.sh)
+benchspan run --benchmark swebench --agent /path/to/my-repo
+```
+
+See available built-in agents with `benchspan agents`.
+
+## Env var check
+
+Before starting a run with a built-in agent, the CLI checks that the agent's required env vars are set on your [dashboard](https://benchspan.com/dashboard/settings/profile). If any are missing, it will error with a message telling you which ones to set.
+
+## Examples
+
+```bash
+# Quick healthcheck with Claude Code
+benchspan run --benchmark agent-healthcheck.quick --agent claude-code
+
+# 50 SWEbench instances with OpenHands, tagged
+benchspan run --benchmark swebench --agent openhands --instances 50 --tag "v2-haiku"
+
+# Custom agent, 3 instances
+benchspan run --benchmark humanevalfix --agent ./my-agent --instances 3
+```

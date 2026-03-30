@@ -1,0 +1,46 @@
+---
+title: "benchspan runs"
+description: "Inspect, compare, watch, and manage benchmark runs."
+---
+
+## List runs
+
+```bash
+benchspan runs list
+benchspan runs list --benchmark swebench
+benchspan runs list --tag "v2-haiku"
+```
+
+Shows all your runs with resolve rate, instance count, and timestamps.
+
+## Show run details
+
+```bash
+benchspan runs show <run_id>
+```
+
+Shows per-instance results: resolved/failed status, score, token usage, and latency.
+
+## Compare two runs
+
+```bash
+benchspan runs compare <run_a> <run_b>
+```
+
+Side-by-side diff of two runs showing which instances improved, regressed, or stayed the same. Useful for A/B testing model changes or agent improvements.
+
+## Watch a run in progress
+
+```bash
+benchspan runs watch <run_id>
+```
+
+Live-updates in your terminal as instances complete. Shows progress, resolve rate, and errors in real time. Exits when the run finishes.
+
+## Cancel a run
+
+```bash
+benchspan runs cancel <run_id>
+```
+
+Cancels all pending instances in a run. Instances already running will finish, but no new ones will start.

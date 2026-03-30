@@ -1,0 +1,105 @@
+---
+title: "Common Issues"
+description: "When something breaks, start here."
+---
+
+## Install noise polluting stdout
+
+**Symptom:** Verifiers fail. Output is full of `apt-get` / `pip` / `npm` text instead of the agent's answer.
+
+**Fix:** Redirect all install output away from stdout:
+```bash
+pip install my-agent >/dev/null 2>&1
+(apt-get update -qq && apt-get install -y -qq curl) >/dev/null 2>&1 || true
+npm install -g my-agent 2>&1 | tail -5 >&2
+```
+
+## Agent output not captured
+
+**Symptom:** `/logs/agent/output.txt` is empty. Verifiers say the answer is missing.
+
+**Fix:** Use `tee`, not `>`:
+```bash
+# Bad — stdout swallowed
+my-agent --task "$PROBLEM_STATEMENT" > "$OUTPUT_DIR/agent.log"
+
+# Good — stdout preserved
+my-agent --task "$PROBLEM_STATEMENT" 2>"$OUTPUT_DIR/stderr.log" | tee "$OUTPUT_DIR/agent.log"
+```
+
+## Missing system dependencies
+
+**Symptom:** `curl: command not found`, `git: command not found`, or `xz` errors.
+
+**Fix:** Check and install before using:
+```bash
+(which curl >/dev/null 2>&1 && which git >/dev/null 2>&1) || \
+  (apt-get update -qq && apt-get install -y -qq curl git) >/dev/null 2>&1 || true
+```
+
+## Agent refuses to run as root
+
+**Symptom:** Agent exits with "cannot run as root" or similar.
+
+**Fix:** Create a non-root user:
+```bash
+useradd -m -s /bin/bash benchkit 2>/dev/null || true
+chown -R benchkit:benchkit "$OUTPUT_DIR" 2>/dev/null || true
+chmod -R 777 "$WORKING_DIR" 2>/dev/null || true
+su benchkit -p -c "bash /tmp/run_agent.sh"
+```
+
+## Python version mismatch
+
+**Symptom:** `uv sync` fails or hangs. Error about `requires-python`.
+
+**Fix:** Use uv's Python management:
+```bash
+uv sync --python 3.12 >/dev/null 2>&1
+```
+
+## Conda PATH issues
+
+**Symptom:** `python: command not found` in conda-based benchmark images.
+
+**Fix:** Source conda explicitly:
+```bash
+eval "$(conda shell.bash hook 2>/dev/null)" && conda activate base 2>/dev/null || true
+```
+
+## Agent works on wrong directory
+
+**Symptom:** Agent edits files in `/runner/` (its own code) instead of the benchmark task.
+
+**Fix:** Set your agent's working directory to `$WORKING_DIR`:
+```bash
+export MY_AGENT_WORK_DIR="$WORKING_DIR"
+cd "$WORKING_DIR"
+```
+
+## Agent says "not configured" or "missing API key"
+
+**Symptom:** Agent errors about missing settings in headless mode.
+
+**Fix:** Two things to check:
+1. Make sure the required env vars are set on your [dashboard](https://benchspan.com/dashboard/settings/profile)
+2. If the agent normally reads from a config file, pass a flag like `--override-with-envs` to read from env vars instead
+
+## Quoting issues with $PROBLEM_STATEMENT
+
+**Symptom:** Agent gets a truncated or mangled problem statement.
+
+**Fix:** Always double-quote. For sub-scripts, use single-quoted heredocs:
+```bash
+cat > /tmp/run.sh << 'RUNEOF'
+#!/bin/bash
+my-agent --task "$PROBLEM_STATEMENT"
+RUNEOF
+bash /tmp/run.sh
+```
+
+## Timeout
+
+**Symptom:** Run shows "timed out" error.
+
+**Fix:** Check for interactive prompts (missing `--headless` flag), or use a faster model for testing. The healthcheck tasks have a 300s timeout — if install + agent takes longer, optimize your install step.
