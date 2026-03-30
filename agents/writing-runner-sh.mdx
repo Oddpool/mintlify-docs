@@ -96,6 +96,16 @@ my-agent --task "$PROBLEM_STATEMENT" \
 
 Place `runner.sh` at the root of your repo. Point `--agent` at the repo directory.
 
+Also create a `.benchspanignore` file to exclude files that don't need to be in the container (the CLI always excludes `.git`, `__pycache__`, `node_modules`, `.venv`, and `*.pyc` by default):
+
+```
+# .benchspanignore
+dist/
+build/
+*.egg-info/
+tests/fixtures/large/
+```
+
 ```bash
 #!/bin/bash
 # Benchspan agent: My Agent

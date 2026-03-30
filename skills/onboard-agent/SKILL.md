@@ -117,6 +117,19 @@ uv run --directory /runner my-agent \
 
 5. **`--agent` points at the repo root.** The user runs: `benchspan run --benchmark swebench --agent /path/to/my-repo`. The entire repo gets packaged and injected.
 
+6. **Create a `.benchspanignore` file.** When building from source, the CLI packages the entire repo. Large files (build artifacts, test data, datasets) slow down uploads. Create a `.benchspanignore` at the repo root to exclude them. It works like `.gitignore` — one pattern per line, `#` comments. These are always excluded by default: `.git`, `__pycache__`, `node_modules`, `.venv`, `*.pyc`. Example:
+   ```
+   # Build artifacts
+   dist/
+   build/
+   *.egg-info/
+
+   # Test data
+   tests/fixtures/large/
+   *.bin
+   ```
+   Always create this file for build-from-source agents.
+
 ### Published package pattern
 
 If the user chose published package, create a small `agents/<name>/` directory with just runner.sh. The runner.sh installs from pip/npm and runs.

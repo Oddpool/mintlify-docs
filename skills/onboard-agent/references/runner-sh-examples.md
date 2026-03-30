@@ -186,6 +186,7 @@ echo '{"schema_version":"1.0","instance_id":"'"$INSTANCE_ID"'","total_tokens":0,
 When the agent codebase IS the agent directory:
 
 - [ ] runner.sh is at the repo root
+- [ ] `.benchspanignore` created to exclude large/unnecessary files (build artifacts, test data, etc.)
 - [ ] System deps installed (curl, git, etc.) with stdout suppressed
 - [ ] Build tool installed (uv, node, cargo) with stdout suppressed
 - [ ] `cd /runner && <build command>` builds from source
