@@ -190,7 +190,7 @@ When the agent codebase IS the agent directory:
 - [ ] Build tool installed (uv, node, cargo) with stdout suppressed
 - [ ] `cd /runner && <build command>` builds from source
 - [ ] Python version handled (`uv sync --python X.Y` if needed)
-- [ ] API key env vars mapped from BenchKit names to agent's names
+- [ ] Required env vars documented in `# Env:` comment line (user sets them on Benchspan dashboard)
 - [ ] Agent's working directory pointed at `$WORKING_DIR`, not `/runner/`
 - [ ] Agent config files in the repo won't interfere (hooks, settings)
 - [ ] `cd "$WORKING_DIR"` before running the agent

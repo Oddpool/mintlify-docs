@@ -1,11 +1,11 @@
 ---
 name: onboard-agent
-description: Onboard a new agent to BenchKit. Use when the user wants to integrate their agent, create a runner.sh, test their agent against benchmarks, or says "onboard", "integrate my agent", "create runner.sh", or "set up my agent for benchkit". Automates the full process from codebase exploration through healthcheck testing.
+description: Onboard a new agent to Benchspan. Use when the user wants to integrate their agent, create a runner.sh, test their agent against benchmarks, or says "onboard", "integrate my agent", "create runner.sh", or "set up my agent for benchspan". Automates the full process from codebase exploration through healthcheck testing.
 ---
 
 # Agent Onboarding Skill
 
-You are onboarding a new agent to BenchKit. Your job is to explore the user's agent codebase, generate a working `runner.sh`, and verify it passes the `agent-healthcheck` benchmark.
+You are onboarding a new agent to Benchspan. Your job is to explore the user's agent codebase, generate a working `runner.sh`, and verify it passes the `agent-healthcheck` benchmark.
 
 ## Phase 1: Discover
 
@@ -18,7 +18,7 @@ Ask the user these questions (skip any they've already answered):
 3. **What runtime does it use?** (Python/pip/uv, Node.js/npm, Rust/binary, Go, other)
 4. **How is it invoked?** (CLI command, Python API, etc.)
 5. **What env vars does your agent need?** (API keys, model config, etc.)
-   - Users set these on the BenchSpan dashboard — any env var they set there gets injected into the container at runtime. There are no naming restrictions. If the agent expects `LLM_API_KEY` and `LLM_MODEL`, that's what they set on the dashboard.
+   - Users set these on the Benchspan dashboard — any env var they set there gets injected into the container at runtime. There are no naming restrictions. If the agent expects `LLM_API_KEY` and `LLM_MODEL`, that's what they set on the dashboard.
 6. **What type of agent is it?**
    - **Coding agent** — can read/edit files, run shell commands, interact with a codebase
    - **Reasoning/QA agent** — answers questions, solves problems, produces text output
@@ -92,7 +92,7 @@ uv sync --python 3.12 >/dev/null 2>&1
 
 # ── Phase 2: Configure + run ──
 # Env vars your agent needs (API keys, model, etc.) are set by the user on
-# the BenchSpan dashboard. They get injected into the container automatically.
+# the Benchspan dashboard. They get injected into the container automatically.
 # CRITICAL: point agent at the benchmark task dir, not /runner
 export MY_AGENT_WORK_DIR="$WORKING_DIR"
 
@@ -111,11 +111,11 @@ uv run --directory /runner my-agent \
 
 2. **Python version mismatch.** The container may have Python 3.11 but your project requires 3.12. Use `uv sync --python 3.12` — uv will auto-download the right version. Or install it explicitly.
 
-3. **Env vars.** Users set whatever env vars their agent needs on the BenchSpan dashboard — they get injected into the container with the exact names configured. The runner.sh doesn't need to map or rename anything. Just make sure the user knows which env vars to set (e.g., `LLM_API_KEY`, `LLM_MODEL`).
+3. **Env vars.** Users set whatever env vars their agent needs on the Benchspan dashboard — they get injected into the container with the exact names configured. The runner.sh doesn't need to map or rename anything. Just make sure the user knows which env vars to set (e.g., `LLM_API_KEY`, `LLM_MODEL`).
 
 4. **Config files in the repo.** If your repo has agent config files (hooks, settings) at `.myagent/`, they'll be at `/runner/.myagent/` — and the agent might load them. Make sure any work-directory config doesn't interfere. Set explicit env vars to override.
 
-5. **`--agent` points at the repo root.** The user runs: `benchkit run --benchmark swebench --agent /path/to/my-repo`. The entire repo gets packaged and injected.
+5. **`--agent` points at the repo root.** The user runs: `benchspan run --benchmark swebench --agent /path/to/my-repo`. The entire repo gets packaged and injected.
 
 ### Published package pattern
 
@@ -166,20 +166,22 @@ echo '{"schema_version":"1.0","instance_id":"'"$INSTANCE_ID"'","total_tokens":0,
 
 ## Phase 4: Setup
 
-1. Check if benchkit CLI is installed: `which benchkit`
-2. If not: `pip install -e /path/to/benchkit` (ask user for benchkit repo path)
-3. Check if the user is logged in: `benchkit whoami`
-4. If not logged in, have them log in: tell the user to run `! benchkit login` (this opens a browser for auth)
-5. **List the specific env vars the agent needs** based on what you discovered in Phase 2. Print them clearly, e.g.:
+1. Check if the Benchspan CLI is installed: `which benchspan`
+2. If not installed: `pip install benchspan`
+3. Check if the user is logged in: `benchspan whoami`
+4. If not logged in, have them log in: tell the user to run `! benchspan login` (this opens a browser for auth)
+5. **List the specific env vars the agent needs** based on what you discovered in Phase 2, and ask the user to set them on the Benchspan dashboard. Print them clearly and end with a clear handoff, e.g.:
 
-   > Before we run the healthcheck, make sure these env vars are set on your BenchSpan dashboard:
-   > - `LLM_API_KEY` — your Anthropic/OpenAI API key
-   > - `LLM_MODEL` — e.g., `claude-haiku-4-5-20251001`
+   > Before we can test your agent, please set these env vars on your Benchspan dashboard at https://benchspan.com/dashboard/settings/profile:
    >
-   > Any env var you set there gets injected into the container automatically.
+   > - `LLM_API_KEY` — your LLM provider API key
+   > - `LLM_MODEL` — the model to use (e.g., `claude-haiku-4-5-20251001`)
+   >
+   > Any env var you set there gets injected into the container automatically when your agent runs.
+   >
+   > Let me know once they are set and I'll start testing your agent integration.
 
-6. For build-from-source: the `--agent` flag should point at the repo root (where runner.sh is)
-7. For published package: the `--agent` flag should point at the `agents/<name>/` directory
+6. **Wait for the user to confirm** before proceeding to Phase 5.
 
 ## Phase 5: Test
 
@@ -187,13 +189,13 @@ Run the healthcheck benchmark based on agent type:
 
 ```bash
 # Quick smoke test first (2 instances — echo-answer + env-vars)
-benchkit run --benchmark agent-healthcheck.quick --agent <path>
+benchspan run --benchmark agent-healthcheck.quick --agent <path>
 
 # Then full universal suite (7 instances — all agents must pass this)
-benchkit run --benchmark agent-healthcheck.universal --agent <path>
+benchspan run --benchmark agent-healthcheck.universal --agent <path>
 
 # For coding agents, also run the coding subset (3 instances)
-benchkit run --benchmark agent-healthcheck.coding --agent <path>
+benchspan run --benchmark agent-healthcheck.coding --agent <path>
 ```
 
 Where `<path>` is:
@@ -202,16 +204,16 @@ Where `<path>` is:
 
 After the run completes, check results:
 ```bash
-benchkit runs list
-benchkit runs show <run_id>
+benchspan runs list
+benchspan runs show <run_id>
 ```
 
 ## Phase 6: Iterate
 
 For each failed instance:
 
-1. Check the run results: `benchkit runs show <run_id>`
-2. For detailed logs, use the BenchSpan UI or `benchkit runs show <run_id>` output
+1. Check the run results: `benchspan runs show <run_id>`
+2. For detailed logs, use the Benchspan UI or `benchspan runs show <run_id>` output
 3. Check for common failure patterns (see `references/common-gotchas.md`)
 4. Diagnose the root cause — common issues:
    - `/logs/agent/output.txt` empty → agent stdout is being swallowed
@@ -220,7 +222,7 @@ For each failed instance:
    - Timeout → agent hanging on interactive input, or install takes too long
    - Agent working on wrong directory → need to set work dir env var to `$WORKING_DIR`
    - Python version mismatch → use `uv sync --python X.Y` or install explicitly
-   - API key not found → map BenchKit env var names to agent's expected names
+   - Env vars not found → make sure they are set on the Benchspan dashboard
 5. Fix the runner.sh
 6. Re-run the failed subset
 
@@ -231,10 +233,10 @@ Repeat until all required subsets pass.
 Suggest running a real benchmark to verify end-to-end:
 ```bash
 # For coding agents:
-benchkit run --benchmark swebench.django --agent <path> --instances 3
+benchspan run --benchmark swebench --agent <path> --instances 3
 
 # For reasoning agents:
-benchkit run --benchmark aime --agent <path> --instances 3
+benchspan run --benchmark aime --agent <path> --instances 3
 ```
 
 ## Success Criteria
