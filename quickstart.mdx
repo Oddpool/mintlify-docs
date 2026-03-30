@@ -3,6 +3,8 @@ title: "Quickstart"
 description: "Install the CLI, log in, and run your first benchmark in 5 minutes."
 ---
 
+This guide uses a **built-in agent** (Claude Code) so you can see Benchspan in action without writing any code. To onboard your own agent, see [Onboard Your Agent](/agents/overview) after this.
+
 ## 1. Install the CLI
 
 ```bash
@@ -23,25 +25,25 @@ Verify with:
 benchspan whoami
 ```
 
-## 3. Set up your environment variables
+## 3. Add your API key
 
-Go to your [dashboard settings](https://benchspan.com/dashboard/settings/profile) and add the env vars your agent needs. For example, if you're using Claude Code:
+The built-in Claude Code agent needs an Anthropic API key. Go to your [dashboard settings](https://benchspan.com/dashboard/settings/profile) and add:
 
 | Env Var | Value |
 |---|---|
-| `ANTHROPIC_API_KEY` | `sk-ant-...` |
+| `ANTHROPIC_API_KEY` | Your Anthropic API key |
 
-Any env var you set on the dashboard gets injected into the Docker container when your agent runs. There are no naming restrictions — set whatever your agent expects.
+<Tip>
+  You can see what env vars each built-in agent needs by running `benchspan agents`.
+</Tip>
 
-## 4. Run a benchmark
-
-Use a built-in agent to verify everything works:
+## 4. Run the healthcheck
 
 ```bash
 benchspan run --benchmark agent-healthcheck.quick --agent claude-code
 ```
 
-This runs 2 simple tasks against the Claude Code agent. You should see results in about 30 seconds.
+This runs 2 simple tasks against the built-in Claude Code agent. You should see results in about 30 seconds.
 
 ## 5. Check results
 
