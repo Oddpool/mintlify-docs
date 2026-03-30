@@ -50,6 +50,25 @@ benchspan runs show <run_id>
 
 ## When something fails
 
+Download the logs to see what happened:
+
+```bash
+# Download only failed instances
+benchspan runs download <run_id> --failed
+
+# Or a specific instance
+benchspan runs download <run_id> -i echo-answer
+```
+
+Then read `100_runner.log` (your runner.sh output) and `200_scoring.log` (the verifier output):
+
+```bash
+cat run_<id>/echo-answer/100_runner.log
+cat run_<id>/echo-answer/200_scoring.log
+```
+
+Common patterns:
+
 | What you see | What's wrong | How to fix |
 |---|---|---|
 | Output empty | Agent stdout swallowed | Use `tee` instead of `>` redirect |

@@ -217,7 +217,6 @@ Where `<path>` is:
 
 After the run completes, check results:
 ```bash
-benchspan runs list
 benchspan runs show <run_id>
 ```
 
@@ -226,18 +225,33 @@ benchspan runs show <run_id>
 For each failed instance:
 
 1. Check the run results: `benchspan runs show <run_id>`
-2. For detailed logs, use the Benchspan UI or `benchspan runs show <run_id>` output
-3. Check for common failure patterns (see `references/common-gotchas.md`)
-4. Diagnose the root cause — common issues:
-   - `/logs/agent/output.txt` empty → agent stdout is being swallowed
+2. **Download the logs** to inspect what actually happened:
+   ```bash
+   # Download only failed instances
+   benchspan runs download <run_id> --failed
+
+   # Or download a specific instance
+   benchspan runs download <run_id> --instance <instance_id>
+   ```
+   This downloads the run artifacts to a local directory.
+
+3. **Read the logs** to diagnose the root cause. Start with `100_runner.log` (your runner.sh output) and `200_scoring.log` (verifier output):
+   ```bash
+   cat run_<id>/<instance_id>/100_runner.log
+   cat run_<id>/<instance_id>/200_scoring.log
+   ```
+
+4. Common issues:
+   - `/logs/agent/output.txt` empty → agent stdout is being swallowed (use `tee`)
    - "command not found" → dependency not installed or not on PATH
    - "permission denied" → agent needs non-root user workaround
    - Timeout → agent hanging on interactive input, or install takes too long
    - Agent working on wrong directory → need to set work dir env var to `$WORKING_DIR`
    - Python version mismatch → use `uv sync --python X.Y` or install explicitly
    - Env vars not found → make sure they are set on the Benchspan dashboard
-5. Fix the runner.sh
-6. Re-run the failed subset
+
+5. Fix the runner.sh based on what the logs show.
+6. Re-run the failed subset.
 
 Repeat until all required subsets pass.
 
