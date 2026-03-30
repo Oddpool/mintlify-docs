@@ -42,7 +42,7 @@ Before diving into patterns, internalize these — they're the #1 cause of failu
 
 ```bash
 #!/bin/bash
-# BenchKit agent: My Agent
+# Benchspan agent: My Agent
 # Env: MY_API_KEY
 set -uo pipefail
 
@@ -71,7 +71,7 @@ my-agent --task "$PROBLEM_STATEMENT" \
 
 ```bash
 #!/bin/bash
-# BenchKit agent: My Agent
+# Benchspan agent: My Agent
 # Env: MY_API_KEY
 set -uo pipefail
 
@@ -98,7 +98,7 @@ Place `runner.sh` at the root of your repo. Point `--agent` at the repo director
 
 ```bash
 #!/bin/bash
-# BenchKit agent: My Agent
+# Benchspan agent: My Agent
 # Env: LLM_API_KEY, LLM_MODEL
 set -uo pipefail
 
@@ -132,7 +132,7 @@ uv run --directory /runner my-agent \
 
 ```bash
 #!/bin/bash
-# BenchKit agent: My Agent
+# Benchspan agent: My Agent
 # Env: API_KEY
 set -uo pipefail
 
@@ -206,8 +206,8 @@ The second line of your runner.sh should declare what env vars the agent needs:
 
 ```bash
 #!/bin/bash
-# BenchKit agent: My Agent
-# Env: LLM_API_KEY, LLM_MODEL, BENCHKIT_MAX_TURNS (optional)
+# Benchspan agent: My Agent
+# Env: LLM_API_KEY, LLM_MODEL, BENCHSPAN_MAX_TURNS (optional)
 ```
 
 The CLI reads this line to check that required env vars are set on the dashboard before starting a run. Users see this info when they run `benchspan agents`.

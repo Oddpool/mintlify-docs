@@ -10,8 +10,8 @@ Set these on your [dashboard](https://benchspan.com/dashboard/settings/profile):
 | Env Var | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | Yes | Your Anthropic API key |
-| `BENCHKIT_MODEL` | No | Model to use (default: `claude-haiku-4-5-20251001`) |
-| `BENCHKIT_MAX_TURNS` | No | Max agent turns (default: `30`) |
+| `BENCHSPAN_MODEL` | No | Model to use (default: `claude-haiku-4-5-20251001`) |
+| `BENCHSPAN_MAX_TURNS` | No | Max agent turns (default: `30`) |
 
 ## Usage
 
@@ -23,7 +23,7 @@ benchspan run --benchmark swebench --agent claude-code --instances 10
 benchspan run --benchmark agent-healthcheck.quick --agent claude-code
 
 # Use a different model
-# (set BENCHKIT_MODEL=claude-sonnet-4-20250514 on your dashboard)
+# (set BENCHSPAN_MODEL=claude-sonnet-4-20250514 on your dashboard)
 benchspan run --benchmark swebench --agent claude-code --instances 5
 ```
 
@@ -38,9 +38,9 @@ The Claude Code runner:
 
 ## Changing the model
 
-To switch models, update `BENCHKIT_MODEL` on your [dashboard](https://benchspan.com/dashboard/settings/profile):
+To switch models, update `BENCHSPAN_MODEL` on your [dashboard](https://benchspan.com/dashboard/settings/profile):
 
-| Model | `BENCHKIT_MODEL` value |
+| Model | `BENCHSPAN_MODEL` value |
 |---|---|
 | Haiku (fast, cheap) | `claude-haiku-4-5-20251001` |
 | Sonnet (balanced) | `claude-sonnet-4-20250514` |

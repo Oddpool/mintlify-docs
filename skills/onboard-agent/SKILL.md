@@ -57,12 +57,24 @@ Read the reference files for context:
 
 ## Phase 3: Generate
 
+**Every generated runner.sh must start with these two comment lines:**
+
+```bash
+#!/bin/bash
+# Benchspan agent: <Agent Name>
+# Env: <REQUIRED_VAR>, <OTHER_REQUIRED_VAR>, <OPTIONAL_VAR> (optional)
+```
+
+The CLI reads these to: (1) show the agent in `benchspan agents`, and (2) check that required env vars are set on the dashboard before starting a run. Always include them.
+
 ### Build from source pattern
 
 If the user chose build from source, place `runner.sh` at the root of their repo. The entire repo gets tarred and injected at `/runner/` in the container. The runner.sh builds from source there and runs the agent against `$WORKING_DIR`.
 
 ```bash
 #!/bin/bash
+# Benchspan agent: <Agent Name>
+# Env: <list required env vars here>
 set -uo pipefail
 
 # ── Phase 1: Install system deps + build from source ──
@@ -111,6 +123,8 @@ If the user chose published package, create a small `agents/<name>/` directory w
 
 ```bash
 #!/bin/bash
+# Benchspan agent: <Agent Name>
+# Env: <list required env vars here>
 set -uo pipefail
 
 # ── Phase 1: Install ──
