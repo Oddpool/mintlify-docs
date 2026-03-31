@@ -27,6 +27,7 @@
               "agents/how-it-works",
               "agents/writing-runner-sh",
               "agents/trajectory",
+              "agents/error-reporting",
               "agents/healthcheck",
               "agents/common-issues"
             ]
