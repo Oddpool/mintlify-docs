@@ -3,7 +3,9 @@ title: "Testing with Healthcheck"
 description: "Verify your runner.sh works before running real benchmarks."
 ---
 
-The `agent-healthcheck` benchmark runs 10 simple tasks that stress-test your runner.sh across different environments. Tasks are trivial (to save tokens) — the environment is what's being tested.
+The `agent-healthcheck` benchmark runs 9 tasks that test your runner.sh across different container environments. Tasks are trivial (to save tokens) — the environment is what's being tested.
+
+Different agents have different capabilities and tools, so not every test will apply to every agent. The goal is to verify your runner.sh integration works, not to score 100%.
 
 ## Run it
 
@@ -11,36 +13,38 @@ The `agent-healthcheck` benchmark runs 10 simple tasks that stress-test your run
 # Quick smoke test — 2 tasks, ~30 seconds
 benchspan run --benchmark agent-healthcheck.quick --agent ./my-agent
 
-# Full suite — 10 tasks
+# Full suite — 9 tasks
 benchspan run --benchmark agent-healthcheck --agent ./my-agent
 ```
 
 ## Subsets
 
-Pick the subset that matches your agent:
-
 | Subset | Tasks | Who should run it |
 |---|---|---|
 | `quick` | 2 | Everyone — fast smoke test |
-| `universal` | 7 | All agents — stdout capture, env vars, edge cases, missing deps |
-| `coding` | 3 | Coding agents — file create, file edit, read-only files |
-
-**All agents** should pass `universal`. **Coding agents** should also pass `coding`.
+| `universal` | 7 | All agents — stdout capture, edge cases, missing deps |
+| `coding` | 2 | Coding agents — file creation and editing |
 
 ## What each task tests
 
-| Task | Environment | What it catches |
+### Universal
+
+| Task | Environment | What it tests |
 |---|---|---|
-| `echo-answer` | Standard | Agent output not reaching stdout |
-| `env-vars` | Standard | Env vars not accessible to agent |
-| `special-chars` | Standard | Quoting issues with `$PROBLEM_STATEMENT` |
-| `large-problem` | Standard | Agent breaks on large inputs (~16KB) |
-| `no-python3` | No Python | Runner.sh crashes when Python is missing |
-| `no-git` | No git | Runner.sh crashes when git is missing |
-| `conda-env` | Conda base | PATH issues with conda (`bash -lc` vs `bash -c`) |
-| `file-create` | Standard | Agent can't create files in working directory |
-| `file-edit` | Existing file | Agent can't edit existing files |
-| `readonly-files` | Read-only file | Agent crashes on permission errors |
+| `echo-answer` | Standard | Agent output reaches stdout |
+| `env-vars` | Standard | Multi-line problem statement passes through correctly |
+| `special-chars` | Standard | Quotes and special characters in problem statement |
+| `large-problem` | Standard | Large inputs (~16KB) don't break the runner |
+| `no-python3` | No Python | Runner handles missing Python gracefully |
+| `no-git` | No git | Runner handles missing git gracefully |
+| `conda-env` | Conda base | Runner handles conda PATH issues |
+
+### Coding
+
+| Task | Environment | What it tests |
+|---|---|---|
+| `file-create` | Standard | Agent can create files in working directory |
+| `file-edit` | Existing file | Agent can edit existing files |
 
 ## Check results
 
@@ -67,7 +71,7 @@ cat run_<id>/echo-answer/100_runner.log
 cat run_<id>/echo-answer/200_scoring.log
 ```
 
-Common patterns:
+### Runner.sh issues (fix these)
 
 | What you see | What's wrong | How to fix |
 |---|---|---|
@@ -76,5 +80,14 @@ Common patterns:
 | `command not found` | Missing system dep | `which curl \|\| apt-get install curl` |
 | Timeout | Agent waiting for input | Add `--headless` or `--non-interactive` flag |
 | Wrong directory edited | Agent working on `/runner/` | Set agent's work dir to `$WORKING_DIR` |
+
+### Not runner.sh issues (don't worry about these)
+
+Some tests may fail because of the agent's capabilities, not your runner.sh. For example:
+- A coding agent that works through patches may not produce direct stdout answers
+- A QA agent won't create or edit files
+- Some agents may not handle unusual prompts (special chars, large inputs) perfectly
+
+If the runner.sh correctly installs and invokes the agent, these failures are fine. Move on to running real benchmarks.
 
 For more, see [Common Issues](/agents/common-issues).

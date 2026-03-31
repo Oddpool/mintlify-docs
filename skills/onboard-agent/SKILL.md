@@ -241,7 +241,13 @@ For each failed instance:
    cat run_<id>/<instance_id>/200_scoring.log
    ```
 
-4. Common issues:
+4. **Determine if it's a runner.sh issue or an agent behavior issue.** This is critical.
+   - **Runner.sh issues** (fix these): install failures, missing deps, stdout swallowed, wrong working directory, timeout during install, env vars not reaching the agent, Python version mismatch.
+   - **Agent behavior issues** (don't fix in runner.sh): the LLM gave a wrong answer, the agent's paradigm doesn't fit the task (e.g., a patch-based agent can't produce stdout text), the agent misunderstood the prompt.
+
+   If a test fails because of agent behavior, **do not hack the runner.sh to game that specific test**. The runner.sh should faithfully install and invoke the agent — not work around the agent's limitations for individual healthcheck tasks. Move on.
+
+5. Common runner.sh issues:
    - `/logs/agent/output.txt` empty → agent stdout is being swallowed (use `tee`)
    - "command not found" → dependency not installed or not on PATH
    - "permission denied" → agent needs non-root user workaround
@@ -250,10 +256,9 @@ For each failed instance:
    - Python version mismatch → use `uv sync --python X.Y` or install explicitly
    - Env vars not found → make sure they are set on the Benchspan dashboard
 
-5. Fix the runner.sh based on what the logs show.
-6. Re-run the failed subset.
+6. Fix the runner.sh based on what the logs show and re-run.
 
-Repeat until all required subsets pass.
+The goal is a **complete and resilient runner.sh**, not 100% on healthcheck. If the runner.sh correctly installs and invokes the agent, and most tests pass, it's ready for real benchmarks.
 
 ### After healthcheck passes:
 
@@ -266,11 +271,28 @@ benchspan run --benchmark swebench --agent <path> --instances 3
 benchspan run --benchmark aime --agent <path> --instances 3
 ```
 
-## Success Criteria
+## Success Criteria & Communicating Completion
+
+When you're ready to declare the agent onboarded, **explain the results clearly to the user**. They may not understand what the healthcheck tests or why some failures are okay. Write a summary like:
+
+> Your agent is onboarded and ready to run real benchmarks. Here's what we verified:
+>
+> **Runner.sh works:** Your agent installs, runs, and produces output correctly across different container environments.
+>
+> **Healthcheck results: 7/9 passed.** The healthcheck covers a range of capabilities — stdout output, file editing, handling missing dependencies, etc. Different agents have different capabilities and tools, so not every test applies to every agent. For example, a coding agent that works through patches may not produce direct stdout answers, and a QA agent won't create files. The tests that matter for your agent all pass.
+>
+> **Next step:** Run a real benchmark to see how your agent performs:
+> ```
+> benchspan run --benchmark swebench --agent <path> --instances 5
+> ```
+
+Adapt the specific details (which tests passed/failed, why the failures don't apply) to the actual results. The key message: **the runner.sh integration is solid and your agent is ready for real benchmarks.**
 
 The agent is fully onboarded when:
 - [ ] `runner.sh` exists (at repo root for build-from-source, or in `agents/<name>/`)
-- [ ] `agent-healthcheck.universal` passes (all 7 instances)
-- [ ] `agent-healthcheck.coding` passes (if coding agent — all 3 instances)
-- [ ] `trajectory.json` is written for each instance
-- [ ] The agent can solve at least 1 real benchmark instance
+- [ ] `runner.sh` has `# Benchspan agent:` and `# Env:` comment lines
+- [ ] `.benchspanignore` exists (if build-from-source)
+- [ ] `agent-healthcheck.quick` passes (both instances)
+- [ ] Most of `agent-healthcheck.universal` passes — any failures are agent behavior, not runner.sh issues
+- [ ] `agent-healthcheck.coding` passes (if coding agent — both instances)
+- [ ] User understands the results and knows how to run real benchmarks
