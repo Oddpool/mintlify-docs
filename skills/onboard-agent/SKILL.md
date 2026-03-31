@@ -262,7 +262,13 @@ The goal is a **complete and resilient runner.sh**, not 100% on healthcheck. If 
 
 ### After healthcheck passes:
 
-Suggest running a real benchmark to verify end-to-end:
+Once you're confident the runner.sh is solid, do a final run with only the tests you know pass for this agent. For example, if the agent passes echo-answer, env-vars, no-python3, no-git, conda-env, file-create, and file-edit but not special-chars and large-problem, run:
+
+```bash
+benchspan run --benchmark agent-healthcheck.echo-answer,agent-healthcheck.env-vars,agent-healthcheck.no-python3,agent-healthcheck.no-git,agent-healthcheck.conda-env,agent-healthcheck.file-create,agent-healthcheck.file-edit --agent <path>
+```
+
+Then suggest running a real benchmark to verify end-to-end:
 ```bash
 # For coding agents:
 benchspan run --benchmark swebench --agent <path> --instances 3
