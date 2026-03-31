@@ -48,6 +48,7 @@ Systematically read the agent's codebase to understand how to invoke it:
    - Whether it loads config from its own directory (hooks, settings files) that might interfere when the codebase is at `/runner/`
    - What output format it produces (JSONL, plain text, structured logs)
    - **Whether agent output goes to stdout** (the harness captures stdout as `/logs/agent/output.txt`)
+   - **Where the agent writes its trajectory/logs and what format they use.** Actively search for: output directories, log files, JSONL event streams, trajectory files, token usage reporting. Look at the agent's `--output-dir` or `--output-format` flags, and check the source code for where it writes results. Most agents write structured output — find it.
 
 Read the reference files for context:
 - `references/runner-sh-interface.md` — the full runner.sh contract
@@ -169,9 +170,50 @@ my-agent --prompt "$PROBLEM_STATEMENT" \
 
 ### Telemetry extraction:
 
-If the agent outputs JSONL or structured logs, add a Python heredoc to parse them into `trajectory.json`. See `references/trajectory-schema.md` for the schema.
+**Always write a real trajectory converter if the agent has structured output.** Most agents do — JSONL event streams, output directories with JSON files, log files with token counts. You identified these during Phase 2. Write a Python heredoc at the end of runner.sh that:
 
-If the agent has no parseable output, write a minimal trajectory:
+1. Reads the agent's native output file (the one you found during exploration)
+2. Extracts token counts (input_tokens, output_tokens, cache tokens)
+3. Extracts tool calls (tool name, step number)
+4. Writes `$OUTPUT_DIR/trajectory.json` in Benchspan's format
+
+See `references/trajectory-schema.md` for the schema and `references/runner-sh-examples.md` for real converter examples (Claude Code stream-json, Ante event stream).
+
+```bash
+python3 << 'PYEOF'
+import json, os
+
+# Read the agent's native output
+output_path = os.environ["OUTPUT_DIR"] + "/agent_output.log"
+traj_path = os.environ["OUTPUT_DIR"] + "/trajectory.json"
+
+steps = []
+total_input = total_output = 0
+
+with open(output_path) as f:
+    for line in f:
+        try:
+            obj = json.loads(line.strip())
+        except (json.JSONDecodeError, ValueError):
+            continue
+        # Adapt this to your agent's event format:
+        # - Extract tool calls into steps
+        # - Accumulate token counts
+
+traj = {
+    "schema_version": "1.0",
+    "instance_id": os.environ["INSTANCE_ID"],
+    "model": "your-model",
+    "total_tokens": total_input + total_output,
+    "prompt_tokens": total_input,
+    "completion_tokens": total_output,
+    "steps": steps,
+}
+json.dump(traj, open(traj_path, "w"), indent=2)
+PYEOF
+```
+
+Only fall back to a minimal trajectory if you genuinely cannot find any structured output from the agent:
 ```bash
 echo '{"schema_version":"1.0","instance_id":"'"$INSTANCE_ID"'","total_tokens":0,"steps":[]}' \
   > "$OUTPUT_DIR/trajectory.json"
