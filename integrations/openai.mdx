@@ -1,0 +1,103 @@
+---
+title: "OpenAI SDK (raw)"
+description: "No framework? Wrap your OpenAI client calls directly."
+---
+
+Not using an agent framework? Benchspan still works. Wrap the function that calls OpenAI with a decorator (Python) or the `wrapCall` helper (TypeScript). The wrapper scans your messages before the OpenAI request goes out.
+
+## Python
+
+<Steps>
+<Step title="Install">
+  ```bash
+  pip install benchspan openai
+  ```
+</Step>
+
+<Step title="Decorate the call">
+  ```python llm.py
+  from benchspan import BenchGuard
+  from openai import OpenAI
+
+  guard = BenchGuard(api_key="ag_live_...")
+  client = OpenAI()
+
+  @guard.wrap
+  def call_llm(messages):
+      return client.chat.completions.create(
+          model="gpt-5",
+          messages=messages,
+      )
+
+  result = call_llm(messages)
+  # If any user/tool message is an injection, raises BEFORE client.chat.completions.create runs.
+  ```
+
+  Use `@guard.wrap_async` for an `async def` function.
+</Step>
+</Steps>
+
+## TypeScript
+
+<Steps>
+<Step title="Install">
+  ```bash
+  npm install @benchspan/sdk openai
+  ```
+</Step>
+
+<Step title="Wrap the call">
+  ```typescript llm.ts
+  import { BenchGuard } from "@benchspan/sdk";
+  import OpenAI from "openai";
+
+  const guard = new BenchGuard({ apiKey: "ag_live_..." });
+  const client = new OpenAI();
+
+  const result = await guard.wrapCall(messages, () =>
+    client.chat.completions.create({
+      model: "gpt-5",
+      messages,
+    }),
+  );
+  ```
+</Step>
+</Steps>
+
+## Message format
+
+Benchspan expects messages in standard chat shape:
+
+```typescript
+[
+  { role: "system", content: "You are a helpful assistant." },
+  { role: "user", content: "Summarize this email" },
+  { role: "tool", content: emailBody, name: "read_email" },   // <-- this gets scanned
+  { role: "assistant", content: "Sure, here's the summary..." },
+]
+```
+
+- `system` and `assistant` messages → skipped
+- `user` and `tool` messages → scanned (content must be a string)
+- The `name` field, if present, is passed as `source` to the dashboard
+
+## Want the raw scan without wrapping?
+
+```python Python
+from benchspan import BenchGuard
+
+guard = BenchGuard(api_key="ag_live_...")
+
+result = guard.scan(user_input, role="user")
+if result.injection:
+    raise Exception("Blocked")
+response = client.chat.completions.create(...)
+```
+
+```typescript TypeScript
+const guard = new BenchGuard({ apiKey: "ag_live_..." });
+
+const result = await guard.scan(userInput, { role: "user" });
+if (result.injection) throw new Error("Blocked");
+const response = await client.chat.completions.create(...);
+```

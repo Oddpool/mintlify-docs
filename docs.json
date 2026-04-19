@@ -3,9 +3,9 @@
   "theme": "mint",
   "name": "Benchspan",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#346538",
+    "light": "#4F8553",
+    "dark": "#264B28"
   },
   "favicon": "/favicon.svg",
   "navigation": {
@@ -21,46 +21,44 @@
             ]
           },
           {
-            "group": "Onboard Your Agent",
+            "group": "Concepts",
             "pages": [
-              "agents/overview",
-              "agents/how-it-works",
-              "agents/writing-runner-sh",
-              "agents/trajectory",
-              "agents/error-reporting",
-              "agents/healthcheck",
-              "agents/common-issues"
+              "concepts/how-it-works",
+              "concepts/modes",
+              "concepts/roles"
             ]
           },
           {
-            "group": "Built-in Agents",
+            "group": "SDKs",
             "pages": [
-              "built-in/claude-code",
-              "built-in/openhands"
+              "sdks/python",
+              "sdks/typescript"
             ]
           },
           {
-            "group": "Benchmarks",
+            "group": "Framework Integrations",
             "pages": [
-              "benchmarks/overview"
+              "integrations/langchain",
+              "integrations/crewai",
+              "integrations/openai-agents",
+              "integrations/vercel-ai",
+              "integrations/google-adk",
+              "integrations/openai",
+              "integrations/anthropic"
             ]
           }
         ]
       },
       {
-        "tab": "CLI Reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "Commands",
+            "group": "REST API",
             "pages": [
-              "cli/auth",
-              "cli/run",
-              "cli/retry",
-              "cli/agents",
-              "cli/runs",
-              "cli/benchmarks",
-              "cli/instances",
-              "cli/init"
+              "api-reference/overview",
+              "api-reference/authentication",
+              "api-reference/scan",
+              "api-reference/errors"
             ]
           }
         ]
@@ -74,8 +72,13 @@
           "icon": "gauge"
         },
         {
+          "anchor": "Talk to us",
+          "href": "https://cal.com/team/benchspan/20-minute-meeting",
+          "icon": "comment"
+        },
+        {
           "anchor": "Contact",
-          "href": "mailto:avi@benchspan.com",
+          "href": "mailto:founders@benchspan.com",
           "icon": "envelope"
         }
       ]
@@ -89,13 +92,13 @@
     "links": [
       {
         "label": "Support",
-        "href": "mailto:avi@benchspan.com"
+        "href": "mailto:founders@benchspan.com"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Dashboard",
-      "href": "https://benchspan.com/dashboard"
+      "label": "Get API Key",
+      "href": "https://benchspan.com/login"
     }
   },
   "footer": {

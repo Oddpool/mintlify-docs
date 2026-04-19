@@ -1,0 +1,89 @@
+---
+title: "Modes"
+description: "Block vs flag: when to use each."
+---
+
+Benchspan has two operating modes. You pick one when constructing the SDK; it applies to every scan from that instance.
+
+## `block` (default)
+
+If an injection is detected, the SDK raises an exception **before** the LLM call happens. The model never sees the poisoned content.
+
+<CodeGroup>
+
+```python Python
+from benchspan import BenchGuard, InjectionDetectedError
+
+guard = BenchGuard(api_key="ag_live_...", mode="block")
+
+try:
+    result = llm.invoke(messages, config={"callbacks": [guard]})
+except InjectionDetectedError as e:
+    print(f"Blocked: score={e.result.score:.4f}")
+    # Return a safe error to your user, log the incident, alert, etc.
+```
+
+```typescript TypeScript
+import { BenchGuard, InjectionDetectedError } from "@benchspan/sdk";
+
+const guard = new BenchGuard({ apiKey: "ag_live_...", mode: "block" });
+
+try {
+  await guard.scanOrThrow(toolOutput, { role: "tool" });
+} catch (e) {
+  if (e instanceof InjectionDetectedError) {
+    console.log(`Blocked: score=${e.result.score.toFixed(4)}`);
+  }
+}
+```
+
+</CodeGroup>
+
+Use `block` in production. It's the default for a reason: an injection that reaches the LLM is already damage, even if you catch it in logs afterwards.
+
+## `flag`
+
+The SDK logs a warning but lets the call through. Useful for:
+
+- **Evaluating false-positive rate** on your real traffic before enforcing
+- **Shadow deployments**: running Benchspan in parallel with your existing controls
+- **Custom handling**: when you want to annotate the response or take a softer action (e.g., increase monitoring) instead of blocking outright
+
+<CodeGroup>
+
+```python Python
+guard = BenchGuard(api_key="ag_live_...", mode="flag")
+
+result = llm.invoke(messages, config={"callbacks": [guard]})
+# Injection is detected and logged to stderr; LLM call proceeds.
+```
+
+```typescript TypeScript
+const guard = new BenchGuard({ apiKey: "ag_live_...", mode: "flag" });
+
+const result = await guard.scan(toolOutput, { role: "tool" });
+if (result.verdict === "flag") {
+  console.warn(`Suspicious but not blocked: ${result.score}`);
+}
+// Your LLM call proceeds with the original content.
+```
+
+</CodeGroup>
+
+## Recommended rollout
+
+<Steps>
+  <Step title="Start in flag mode">
+    Deploy with `mode="flag"`. Watch your dashboard for false positives on real traffic for a few days.
+  </Step>
+  <Step title="Tune if needed">
+    If you see legitimate content being flagged, send us a sample at <a href="mailto:founders@benchspan.com">founders@benchspan.com</a>. For high-volume deployments, we can train a custom model on your traffic; reach out.
+  </Step>
+  <Step title="Switch to block">
+    Once your false-positive rate is acceptable, flip `mode="block"`. Same SDK, one-line change.
+  </Step>
+</Steps>
+
+<Warning>
+  Do **not** run without Benchspan in production with the assumption that your system prompt alone will prevent injection. Every major published IPI attack has broken system-prompt-only defenses.
+</Warning>

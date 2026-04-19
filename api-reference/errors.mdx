@@ -1,0 +1,69 @@
+---
+title: "Errors"
+description: "HTTP codes, error payload shape, and retry guidance."
+---
+
+## Error payload
+
+Every non-2xx response returns a JSON body of this shape:
+
+```json
+{
+  "detail": "Human-readable description of what went wrong"
+}
+```
+
+The `detail` string is safe to log but should not be shown directly to end users; message text may change.
+
+## Codes
+
+<ResponseField name="400 Bad Request">
+  The request body is malformed or fails validation (missing required field, wrong type, etc.). Inspect `detail` for specifics. Do not retry without fixing the client.
+</ResponseField>
+
+<ResponseField name="401 Unauthorized">
+  Missing `Authorization` header, or the API key is invalid / revoked / belongs to a different tier than you expect. Check the key, or mint a new one in [Dashboard → API Keys](https://benchspan.com/dashboard/api-keys).
+</ResponseField>
+
+<ResponseField name="413 Payload Too Large">
+  `input` exceeds the per-request size cap (32,000 characters). Split into chunks and scan separately, or truncate on the client.
+</ResponseField>
+
+<ResponseField name="429 Too Many Requests">
+  Rate limit exceeded. The response includes a `Retry-After` header (seconds). Back off and retry.
+
+  Free tier: 50,000 scans / month. Paid tiers have higher limits.
+</ResponseField>
+
+<ResponseField name="500 Internal Server Error">
+  Transient. Retry with exponential backoff (see below).
+</ResponseField>
+
+<ResponseField name="502 / 503 / 504">
+  Upstream model service is busy or down. Retry with exponential backoff.
+</ResponseField>
+
+## Retry strategy
+
+For `5xx` and `429`:
+
+- **Exponential backoff** starting at 500 ms, doubling to a cap of ~30 s.
+- **Jitter.** Add random 0–250 ms to avoid thundering herds.
+- **Max attempts 3–5.**
+
+Do not retry `4xx` other than `429`; they indicate a client bug.
+
+The Benchspan SDKs handle `429` and `5xx` retries automatically with sensible defaults.
+
+## Failing open vs failing closed
+
+If Benchspan is unreachable (network error, DNS failure, timeout), your agent has a decision to make:
+
+- **Fail closed.** Treat the outage as a potential block. Recommended for high-stakes agents (financial, medical, admin actions).
+- **Fail open.** Let the LLM call through and log the event. Lower friction; tolerates transient blips but means attacks reaching Benchspan during the outage window aren't caught.
+
+The SDKs fail closed by default; they raise the underlying HTTP error up to your application. Wrap accordingly if you need fail-open behavior, and log every fail-open event so you can audit.
+
+## Idempotency
+
+Scan requests are stateless and safe to retry without side effects. There's no idempotency key system because every retry just generates a new scan `id`.

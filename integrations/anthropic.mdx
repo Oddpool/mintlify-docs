@@ -1,0 +1,105 @@
+---
+title: "Anthropic SDK (raw)"
+description: "Scan messages before they reach Claude."
+---
+
+The Anthropic SDK doesn't have lifecycle hooks, so Benchspan wraps your Claude call with a decorator (Python) or `wrapCall` helper (TypeScript). Every `user` and `tool` message is scanned before the request goes out.
+
+## Python
+
+<Steps>
+<Step title="Install">
+  ```bash
+  pip install benchspan anthropic
+  ```
+</Step>
+
+<Step title="Decorate the call">
+  ```python claude.py
+  from benchspan import BenchGuard, InjectionDetectedError
+  from anthropic import Anthropic
+
+  guard = BenchGuard(api_key="ag_live_...", agent="claude-app")
+  client = Anthropic()
+
+  @guard.wrap
+  def ask_claude(messages):
+      return client.messages.create(
+          model="claude-sonnet-4-6",
+          max_tokens=1024,
+          messages=messages,
+      )
+
+  try:
+      response = ask_claude(messages)
+  except InjectionDetectedError as e:
+      print(f"Blocked: {e.result.verdict}, score={e.result.score:.4f}")
+  ```
+
+  Use `@guard.wrap_async` for an `async def` function.
+</Step>
+</Steps>
+
+## TypeScript
+
+<Steps>
+<Step title="Install">
+  ```bash
+  npm install @benchspan/sdk @anthropic-ai/sdk
+  ```
+</Step>
+
+<Step title="Wrap the call">
+  ```typescript claude.ts
+  import { BenchGuard, InjectionDetectedError } from "@benchspan/sdk";
+  import Anthropic from "@anthropic-ai/sdk";
+
+  const guard = new BenchGuard({ apiKey: "ag_live_...", agent: "claude-app" });
+  const client = new Anthropic();
+
+  try {
+    const response = await guard.wrapCall(messages, () =>
+      client.messages.create({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        messages,
+      }),
+    );
+  } catch (e) {
+    if (e instanceof InjectionDetectedError) {
+      console.log(`Blocked: score=${e.result.score.toFixed(4)}`);
+    }
+  }
+  ```
+</Step>
+</Steps>
+
+## Tool use
+
+Claude's tool-use loop means tool outputs flow back into the `messages` array as `tool_result` blocks. Pass those through as `role: "tool"` messages so Benchspan scans them:
+
+```python
+# After the first Claude call with tools
+for block in response.content:
+    if block.type == "tool_use":
+        tool_output = run_tool(block.name, block.input)
+        messages.append({
+            "role": "user",
+            "content": [{
+                "type": "tool_result",
+                "tool_use_id": block.id,
+                "content": tool_output,
+            }],
+        })
+
+# Next ask_claude() call will scan the tool_output before sending
+response = ask_claude(messages)
+```
+
+For scanning tool-result blocks specifically, the simplest pattern is an explicit scan right after the tool runs:
+
+```python
+tool_output = run_tool(block.name, block.input)
+guard.scan(tool_output, role="tool", source=block.name)  # raises on injection
+messages.append({...tool_result block...})
+```

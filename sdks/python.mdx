@@ -1,0 +1,177 @@
+---
+title: "Python SDK"
+description: "Full reference for the benchspan package."
+---
+
+```bash
+pip install benchspan
+```
+
+- Python 3.9+
+- One runtime dependency: `httpx`
+- Optional extra: `benchspan[langchain]` (only if you're using LangChain / CrewAI)
+
+## `BenchGuard`
+
+```python
+from benchspan import BenchGuard
+
+guard = BenchGuard(
+    api_key="ag_live_...",           # required
+    agent="email-agent",              # optional: tags scans in dashboard
+    mode="block",                     # optional: "block" (default) or "flag"
+    api_url="https://api.benchspan.com",  # optional: override for self-hosted
+)
+```
+
+### Constructor arguments
+
+<ResponseField name="api_key" type="str" required>
+  Bearer API key from [Dashboard → API Keys](https://benchspan.com/dashboard/api-keys). Format: `ag_live_...`.
+</ResponseField>
+
+<ResponseField name="agent" type="str | None">
+  Optional label to tag every scan from this instance. Useful for filtering per-agent traffic in the dashboard.
+</ResponseField>
+
+<ResponseField name="mode" type='"block" | "flag"' default='"block"'>
+  In block mode, callbacks/hooks raise `InjectionDetectedError` on detection. In flag mode, they log a warning and let the call proceed. See [Modes](/concepts/modes).
+</ResponseField>
+
+<ResponseField name="api_url" type="str" default="https://api.benchspan.com">
+  Override the API host. Used for self-hosted deployments.
+</ResponseField>
+
+## Methods
+
+### `guard.scan(input, role="user", source=None) → ScanResult`
+
+Scan a single string synchronously. Returns the verdict; does **not** raise on injection. Use framework integrations or `wrap` for auto-raise behavior.
+
+```python
+result = guard.scan("some text", role="tool", source="gmail.get_email")
+
+# result.injection      → bool
+# result.score          → float, 0–1
+# result.verdict        → "block" | "flag" | "pass"
+# result.model_version  → str
+# result.latency_ms     → int
+# result.id             → str (UUID)
+```
+
+### `guard.scan_async(input, role="user", source=None) → ScanResult`
+
+Async variant of `scan`. Use inside `async def` functions.
+
+```python
+result = await guard.scan_async("some text", role="tool")
+```
+
+### `@guard.wrap`
+
+Decorator for functions that call the LLM directly (raw OpenAI / Anthropic SDK, etc.). Scans the `messages` argument before the function runs.
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+@guard.wrap
+def call_llm(messages):
+    return client.chat.completions.create(model="gpt-5", messages=messages)
+
+result = call_llm(messages)
+# Raises InjectionDetectedError BEFORE client.chat.completions.create is invoked
+# if any user/tool message is classified as injection.
+```
+
+### `@guard.wrap_async`
+
+Async variant of `@guard.wrap`. For `async def` functions.
+
+```python
+@guard.wrap_async
+async def call_llm(messages):
+    return await client.chat.completions.create(model="gpt-5", messages=messages)
+```
+
+### LangChain / CrewAI callback
+
+`BenchGuard` implements `BaseCallbackHandler` directly. Pass it where LangChain accepts callbacks:
+
+```python
+llm.invoke(messages, config={"callbacks": [guard]})
+# or
+crew = Crew(agents=[...], tasks=[...], callbacks=[guard])
+```
+
+See [LangChain integration](/integrations/langchain) and [CrewAI integration](/integrations/crewai).
+
+### `guard.as_agent_hooks()`
+
+Returns an `AgentHooksBase` subclass (OpenAI Agents SDK) with `on_tool_end` wired up. See [OpenAI Agents integration](/integrations/openai-agents).
+
+```python
+from agents import Agent
+agent = Agent(name="...", model="gpt-5", hooks=guard.as_agent_hooks())
+```
+
+### `guard.as_adk_callback()`
+
+Returns a `before_model_callback` for Google ADK. See [Google ADK integration](/integrations/google-adk).
+
+```python
+from google.adk import LlmAgent
+agent = LlmAgent(
+    name="...",
+    model="gemini-2.5-pro",
+    before_model_callback=guard.as_adk_callback(),
+)
+```
+
+## Types
+
+### `ScanResult`
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class ScanResult:
+    id: str
+    injection: bool
+    score: float
+    verdict: str  # "block" | "flag" | "pass"
+    model_version: str
+    latency_ms: int
+```
+
+### `InjectionDetectedError`
+
+```python
+class InjectionDetectedError(Exception):
+    result: ScanResult  # attached for inspection
+```
+
+Raised by `@guard.wrap`, `@guard.wrap_async`, and all framework integrations when `verdict == "block"`.
+
+```python
+from benchspan import InjectionDetectedError
+
+try:
+    call_llm(messages)
+except InjectionDetectedError as e:
+    print(f"Blocked: score={e.result.score:.4f}, id={e.result.id}")
+```
+
+## Logging
+
+The SDK logs to the `benchspan` logger. Attach a handler to see `flag` warnings and debug output:
+
+```python
+import logging
+logging.getLogger("benchspan").setLevel(logging.WARNING)
+```
+
+## Thread / async safety
+
+Each `BenchGuard` instance maintains a dedup cache of scanned message hashes, so don't share an instance across unrelated agent runs if you need each run to get a fresh cache. A new instance is cheap; it's just a config bag around `httpx`.

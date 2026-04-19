@@ -1,0 +1,158 @@
+---
+title: "TypeScript SDK"
+description: "Full reference for the @benchspan/sdk package."
+---
+
+```bash
+npm install @benchspan/sdk
+```
+
+- Node 18+ (uses native `fetch`)
+- Zero runtime dependencies beyond what you already have for your agent framework
+- ESM only
+
+## `BenchGuard`
+
+```typescript
+import { BenchGuard } from "@benchspan/sdk";
+
+const guard = new BenchGuard({
+  apiKey: "ag_live_...",     // required
+  agent: "email-agent",       // optional: tags scans in dashboard
+  mode: "block",              // optional: "block" (default) or "flag"
+  apiUrl: "https://api.benchspan.com",  // optional: override for self-hosted
+});
+```
+
+### Config
+
+<ResponseField name="apiKey" type="string" required>
+  Bearer API key from [Dashboard → API Keys](https://benchspan.com/dashboard/api-keys). Format: `ag_live_...`.
+</ResponseField>
+
+<ResponseField name="agent" type="string">
+  Optional label to tag every scan from this instance.
+</ResponseField>
+
+<ResponseField name="mode" type='"block" | "flag"' default='"block"'>
+  In block mode, `scanOrThrow` throws `InjectionDetectedError` on injection. Framework integrations use `scanOrThrow` internally, so block mode aborts before the LLM call.
+</ResponseField>
+
+<ResponseField name="apiUrl" type="string" default="https://api.benchspan.com">
+  Override the API host. Used for self-hosted deployments.
+</ResponseField>
+
+## Methods
+
+### `guard.scan(input, options?) → Promise<ScanResult>`
+
+Scan a single string. Returns the verdict; does **not** throw on injection.
+
+```typescript
+const result = await guard.scan("some text", { role: "user" });
+// result.injection      → boolean
+// result.score          → number, 0–1
+// result.verdict        → "block" | "flag" | "pass"
+// result.model_version  → string
+// result.latency_ms     → number
+// result.id             → string (UUID)
+```
+
+### `guard.scanOrThrow(input, options?) → Promise<ScanResult>`
+
+Same as `scan`, but throws `InjectionDetectedError` when the verdict is `block` (in block mode) and logs a warning when it's `flag`.
+
+```typescript
+try {
+  await guard.scanOrThrow(toolOutput, { role: "tool" });
+  // no injection, proceed
+} catch (e) {
+  if (e instanceof InjectionDetectedError) {
+    console.log(`Blocked: ${e.result.score}`);
+  }
+}
+```
+
+### `guard.wrapCall(messages, fn)`
+
+Scans an array of chat messages, then invokes `fn()`. Throws before `fn()` runs if an injection is found.
+
+```typescript
+import OpenAI from "openai";
+
+const client = new OpenAI();
+
+const result = await guard.wrapCall(
+  messages,
+  () => client.chat.completions.create({ model: "gpt-4o", messages }),
+);
+```
+
+Message objects can follow any of these shapes:
+
+```typescript
+{ role: "user" | "tool" | "system" | "assistant", content: string, name?: string }
+```
+
+`system` and `assistant` roles are skipped.
+
+### `guard.asAgentHooks()`
+
+Returns an object with `onToolEnd(context, agent, tool, result)` for the OpenAI Agents SDK. See [OpenAI Agents integration](/integrations/openai-agents).
+
+### `guard.asLangChainCallback()`
+
+Returns a LangChain JS callback object with `handleChatModelStart` and `handleLLMStart`. See [LangChain integration](/integrations/langchain).
+
+### `guard.asMiddleware()`
+
+Returns a Vercel AI SDK middleware with `transformParams`. Scans the prompt before the model is invoked. See [Vercel AI SDK integration](/integrations/vercel-ai).
+
+### `guard.asAdkCallback()`
+
+Returns a `beforeModelCallback` for the Google ADK. Scans every part of every content before the LLM call. See [Google ADK integration](/integrations/google-adk).
+
+## Types
+
+### `ScanResult`
+
+```typescript
+interface ScanResult {
+  id: string;
+  injection: boolean;
+  score: number;
+  verdict: "block" | "flag" | "pass";
+  model_version: string;
+  latency_ms: number;
+}
+```
+
+### `BenchGuardConfig`
+
+```typescript
+interface BenchGuardConfig {
+  apiKey: string;
+  agent?: string;
+  mode?: "block" | "flag";
+  apiUrl?: string;
+}
+```
+
+### `ScanOptions`
+
+```typescript
+interface ScanOptions {
+  role?: "user" | "tool";
+  source?: string;
+}
+```
+
+### `InjectionDetectedError`
+
+```typescript
+class InjectionDetectedError extends Error {
+  result: ScanResult;
+}
+```
+
+Thrown by `scanOrThrow`, `wrapCall`, and all framework integrations when `verdict === "block"`.

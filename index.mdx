@@ -1,40 +1,51 @@
 ---
 title: "Benchspan"
-description: "Run your AI agent against standardized benchmarks. One runner.sh, every benchmark."
+description: "The prompt injection firewall for AI agents. Scan tool outputs and user messages before they reach your model."
 ---
 
-Benchspan is a platform for benchmarking AI agents. You write a single `runner.sh` that tells us how to run your agent. We handle everything else — Docker containers, benchmark infrastructure, scoring, and analytics.
+Benchspan is a real-time classifier that blocks prompt injection attacks aimed at your AI agent. Drop the SDK into your existing LangChain, CrewAI, OpenAI Agents, Vercel AI, or Google ADK stack and every tool output and user message gets scanned before it reaches the LLM.
 
-## How it works
-
-```
-Your agent  →  runner.sh  →  Benchspan  →  Results
-```
-
-1. You write a `runner.sh` that installs and runs your agent
-2. We package it and run it against benchmark tasks in isolated Docker containers
-3. Each task gives your agent a problem statement and a working directory
-4. Your agent solves the problem, we grade the result
-5. You get scores, token usage, latency, and detailed logs
-
-## Get started
+- **Inline.** Runs as a callback or middleware in your existing framework, not a separate service to orchestrate.
+- **Built for the agent era.** Detects indirect prompt injection hiding in tool outputs, HTML, and email, not just user jailbreaks.
+- **Free up to 50,000 requests / month, forever.** No credit card to start.
 
 <CardGroup cols={2}>
-
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  Install the CLI, log in, and run your first benchmark in 5 minutes.
-</Card>
-
-<Card title="Onboard your agent" icon="plug" href="/agents/overview">
-  Write a runner.sh for your agent and verify it works with the healthcheck benchmark.
-</Card>
-
-<Card title="Built-in agents" icon="box" href="/built-in/claude-code">
-  Run pre-configured agents like Claude Code or OpenHands without writing any code.
-</Card>
-
-<Card title="CLI Reference" icon="terminal" href="/cli/run">
-  Full reference for all Benchspan CLI commands.
-</Card>
-
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the SDK and run your first scan in under 2 minutes.
+  </Card>
+  <Card title="How it works" icon="shield" href="/concepts/how-it-works">
+    What Benchspan scans, what it blocks, and the verdicts it returns.
+  </Card>
+  <Card title="Framework integrations" icon="plug" href="/integrations/langchain">
+    LangChain, CrewAI, OpenAI Agents, Vercel AI, Google ADK, raw SDKs.
+  </Card>
+  <Card title="REST API" icon="code" href="/api-reference/overview">
+    Use Benchspan directly from any language. Full HTTP reference.
+  </Card>
 </CardGroup>
+
+## At a glance
+
+```python Python
+from benchspan import BenchGuard
+from langchain_anthropic import ChatAnthropic
+
+guard = BenchGuard(api_key="ag_live_...")
+llm = ChatAnthropic(model="claude-sonnet-4-6")
+
+# Injection in any message will raise InjectionDetectedError before Claude is called.
+result = llm.invoke(messages, config={"callbacks": [guard]})
+```
+
+```typescript TypeScript
+import { BenchGuard } from "@benchspan/sdk";
+
+const guard = new BenchGuard({ apiKey: "ag_live_..." });
+
+const { injection, verdict } = await guard.scan(toolOutput, { role: "tool" });
+if (injection) throw new Error("Blocked by Benchspan");
+```
+
+## Who uses Benchspan
+
+Teams shipping agents in production that read untrusted content: email, uploaded documents, web pages, third-party tool outputs. The attack surface expanded the moment your agent started calling tools. Benchspan sits between the tool and the model.

@@ -1,0 +1,112 @@
+---
+title: "LangChain"
+description: "Pass BenchGuard as a callback. Every scan runs before your chat model is invoked."
+---
+
+Benchspan integrates with LangChain as a **callback handler**. It scans `user` and `tool` messages flowing through the chat model and raises `InjectionDetectedError` (in block mode) before the LLM call goes out.
+
+## Python
+
+<Steps>
+<Step title="Install">
+  ```bash
+  pip install benchspan langchain-anthropic  # or any LangChain provider
+  ```
+</Step>
+
+<Step title="Pass the guard as a callback">
+  ```python agent.py
+  from benchspan import BenchGuard
+  from langchain_anthropic import ChatAnthropic
+  from langchain_core.messages import HumanMessage, ToolMessage
+
+  guard = BenchGuard(api_key="ag_live_...", agent="email-agent")
+  llm = ChatAnthropic(model="claude-sonnet-4-6")
+
+  messages = [
+      HumanMessage(content="Summarize this email"),
+      ToolMessage(
+          content=email_body,           # scanned by BenchGuard
+          tool_call_id="call_123",
+          name="read_email",
+      ),
+  ]
+
+  result = llm.invoke(messages, config={"callbacks": [guard]})
+  ```
+
+  `BenchGuard` implements the `BaseCallbackHandler` interface directly, so no wrapper class is needed. Pass it to any chain, agent, or `.invoke()` call that accepts callbacks.
+</Step>
+
+<Step title="Handle injections">
+  ```python
+  from benchspan import InjectionDetectedError
+
+  try:
+      result = llm.invoke(messages, config={"callbacks": [guard]})
+  except InjectionDetectedError as e:
+      # Tell your user, log, alert. The LLM call never happened.
+      return {"error": "Suspicious content detected", "score": e.result.score}
+  ```
+</Step>
+</Steps>
+
+### Works with
+
+Any LangChain provider: Anthropic, OpenAI, Google, Mistral, Ollama, and custom LLMs. The callback attaches to the chat model, not the provider.
+
+## TypeScript
+
+<Steps>
+<Step title="Install">
+  ```bash
+  npm install @benchspan/sdk @langchain/anthropic
+  ```
+</Step>
+
+<Step title="Wrap the callback">
+  ```typescript agent.ts
+  import { BenchGuard } from "@benchspan/sdk";
+  import { ChatAnthropic } from "@langchain/anthropic";
+
+  const guard = new BenchGuard({ apiKey: "ag_live_...", agent: "email-agent" });
+  const llm = new ChatAnthropic({ model: "claude-sonnet-4-6" });
+
+  const result = await llm.invoke(messages, {
+    callbacks: [guard.asLangChainCallback()],
+  });
+  ```
+
+  LangChain JS requires an object with `handleChatModelStart` / `handleLLMStart`. `asLangChainCallback()` returns exactly that.
+</Step>
+</Steps>
+
+## What gets scanned
+
+| Message type | Scanned? |
+|---|---|
+| `HumanMessage` / `user` | ✅ |
+| `ToolMessage` / `tool` | ✅ |
+| `SystemMessage` / `system` | ❌ (trusted) |
+| `AIMessage` / `assistant` | ❌ (trusted) |
+
+Duplicates are skipped. If the same tool output appears in multiple turns of a conversation, it's only scanned once.
+
+## CrewAI
+
+CrewAI uses the same LangChain callback protocol. Pass `BenchGuard` directly to the `Crew`:
+
+```python crew.py
+from benchspan import BenchGuard
+from crewai import Agent, Crew, Task
+
+guard = BenchGuard(api_key="ag_live_...", agent="research-crew")
+
+crew = Crew(
+    agents=[...],
+    tasks=[...],
+    callbacks=[guard],
+)
+```
+
+See [CrewAI integration](/integrations/crewai) for a full crew example.

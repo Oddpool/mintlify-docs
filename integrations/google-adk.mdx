@@ -1,0 +1,81 @@
+---
+title: "Google ADK"
+description: "Register BenchGuard as a beforeModelCallback on your Gemini agent."
+---
+
+The Google Agent Development Kit (ADK) exposes a `before_model_callback` / `beforeModelCallback` hook that fires before every LLM call. Benchspan ships a factory that scans each content part before the Gemini call goes out.
+
+## Python
+
+<Steps>
+<Step title="Install">
+  ```bash
+  pip install benchspan google-adk
+  ```
+</Step>
+
+<Step title="Register the callback">
+  ```python agent.py
+  from benchspan import BenchGuard
+  from google.adk import LlmAgent
+
+  guard = BenchGuard(api_key="ag_live_...", agent="gemini-app")
+
+  agent = LlmAgent(
+      name="assistant",
+      model="gemini-2.5-pro",
+      before_model_callback=guard.as_adk_callback(),
+  )
+  ```
+</Step>
+</Steps>
+
+## TypeScript
+
+<Steps>
+<Step title="Install">
+  ```bash
+  npm install @benchspan/sdk @google/adk
+  ```
+</Step>
+
+<Step title="Register the callback">
+  ```typescript agent.ts
+  import { BenchGuard } from "@benchspan/sdk";
+  import { LlmAgent } from "@google/adk";
+
+  const guard = new BenchGuard({ apiKey: "ag_live_...", agent: "gemini-app" });
+
+  const agent = new LlmAgent({
+    name: "assistant",
+    model: "gemini-2.5-pro",
+    beforeModelCallback: guard.asAdkCallback(),
+  });
+  ```
+</Step>
+</Steps>
+
+## What gets scanned
+
+Every text part in `llmRequest.contents`. The `role` of each content determines how it's classified:
+
+| ADK role | Scanned as |
+|---|---|
+| `user` | `user` |
+| `model` (tool response round-trips) | `tool` |
+
+System instructions and pure model completions are skipped; they're inside your trust boundary.
+
+## Handling blocks
+
+In block mode, the callback raises `InjectionDetectedError` which propagates out of the ADK invocation. Wrap your agent call in a `try / except` (Python) or `try / catch` (TypeScript):
+
+```python
+from benchspan import InjectionDetectedError
+
+try:
+    response = await agent.run_async(user_input)
+except InjectionDetectedError as e:
+    # Log, alert, return safe error to user
+    print(f"Blocked: score={e.result.score:.4f}")
+```

@@ -1,0 +1,51 @@
+---
+title: "Authentication"
+description: "All Benchspan API requests use a Bearer API key."
+---
+
+## Header
+
+Every request must include:
+
+```
+Authorization: Bearer ag_live_<secret>
+```
+
+## Getting an API key
+
+Sign in at [benchspan.com/login](https://benchspan.com/login) with Google. Your first-ever sign-in provisions a default key automatically (shown once in the welcome flow). Create additional keys any time in **Dashboard → API Keys**.
+
+<Warning>
+  API keys are shown **once** at creation time and stored hashed on the server. We can't recover or re-display a key. If you lose one, revoke it and create a new one.
+</Warning>
+
+## Key format
+
+- Prefix: `ag_live_`
+- Length: 40 characters total
+- Random part: 32 hex characters (`[0-9a-f]{32}`)
+
+Example: `ag_live_1a2b3c4d5e6f7890abcdef1234567890ab`
+
+## Security practices
+
+- **Store in a secret manager.** Environment variables + `.env` files for local dev; cloud secret managers (AWS Secrets Manager, GCP Secret Manager, Vault, Doppler) for prod.
+- **Never commit keys to source control.** Add `.env*` to your `.gitignore`.
+- **Use separate keys for separate environments** (dev, staging, prod). Easy to revoke without blast radius.
+- **Tag keys in the dashboard.** Each has a `name` field so you can track where each is deployed.
+- **Rotate on exposure.** If a key is ever logged, committed, or leaked, revoke immediately from the dashboard.
+
+## Revocation
+
+From **Dashboard → API Keys**, click **Revoke** on any key. Revocation is immediate; new requests using that key return `401`.
+
+## Errors
+
+| HTTP | When |
+|---|---|
+| `401 Unauthorized` | Missing `Authorization` header, or invalid / revoked / unknown key |
+| `429 Too Many Requests` | Rate limit exceeded |
+
+## Per-org vs per-user
+
+API keys are scoped to an **organization**, not a user. Every member of your org can see usage and traffic from keys issued by any member. You control visibility via who has access to the workspace in the first place.

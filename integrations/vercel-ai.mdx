@@ -1,0 +1,89 @@
+---
+title: "Vercel AI SDK"
+description: "Wrap your language model with BenchGuard middleware. Scans run inline on every call."
+---
+
+The Vercel AI SDK supports language-model middleware. Benchspan ships an `asMiddleware()` helper that scans the prompt before the model is invoked.
+
+<Note>
+  TypeScript only. The Vercel AI SDK has no official Python equivalent.
+</Note>
+
+## Install
+
+```bash
+npm install @benchspan/sdk ai @ai-sdk/openai
+```
+
+## Usage
+
+```typescript route.ts
+import { BenchGuard, InjectionDetectedError } from "@benchspan/sdk";
+import { wrapLanguageModel, generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+const guard = new BenchGuard({ apiKey: "ag_live_...", agent: "vercel-app" });
+
+const model = wrapLanguageModel({
+  model: openai("gpt-5"),
+  middleware: guard.asMiddleware(),
+});
+
+try {
+  const { text } = await generateText({
+    model,
+    prompt: userInput,
+  });
+  return Response.json({ text });
+} catch (e) {
+  if (e instanceof InjectionDetectedError) {
+    return Response.json(
+      { error: "Suspicious content detected" },
+      { status: 400 },
+    );
+  }
+  throw e;
+}
+```
+
+## With streaming
+
+Works identically with `streamText`:
+
+```typescript
+import { streamText } from "ai";
+
+const result = streamText({
+  model,   // wrapped model from above
+  prompt: userInput,
+});
+
+return result.toDataStreamResponse();
+```
+
+If an injection is detected, the middleware throws **before** the stream is created, so your error handler fires normally.
+
+## With tool calls
+
+When tools are involved, the middleware scans tool outputs as they flow back into the prompt:
+
+```typescript
+const result = await generateText({
+  model,
+  prompt: "Summarize my latest email",
+  tools: {
+    read_email: tool({
+      description: "Read an email by ID",
+      parameters: z.object({ id: z.string() }),
+      execute: async ({ id }) => mailClient.get(id).body,
+    }),
+  },
+  maxSteps: 5,
+});
+```
+
+Each time `read_email` returns and its output is added to the prompt, BenchGuard scans it. An injection in the email body aborts the run before the next model call.
+
+## What gets scanned
+
+Every `user` and `tool` message in `params.prompt` before the model call. `system` and `assistant` messages are skipped.

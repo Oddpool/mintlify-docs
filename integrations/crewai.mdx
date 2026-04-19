@@ -1,0 +1,68 @@
+---
+title: "CrewAI"
+description: "Drop BenchGuard into your Crew as a callback. Scans tool outputs across every agent."
+---
+
+CrewAI uses LangChain's callback protocol under the hood, so the [LangChain integration](/integrations/langchain) applies directly. Pass `BenchGuard` as a callback on the `Crew` and every tool output flowing through any agent gets scanned.
+
+<Note>
+  Python only. CrewAI doesn't publish an official TypeScript SDK.
+</Note>
+
+## Install
+
+```bash
+pip install benchspan crewai
+```
+
+## Usage
+
+```python crew.py
+from benchspan import BenchGuard, InjectionDetectedError
+from crewai import Agent, Crew, Task
+
+guard = BenchGuard(api_key="ag_live_...", agent="research-crew", mode="block")
+
+researcher = Agent(
+    role="Senior Researcher",
+    goal="Find accurate information on the topic",
+    tools=[web_search_tool, document_reader],
+)
+
+writer = Agent(
+    role="Technical Writer",
+    goal="Write clear summaries",
+)
+
+tasks = [
+    Task(description="Research {topic}", agent=researcher),
+    Task(description="Summarize findings", agent=writer),
+]
+
+crew = Crew(
+    agents=[researcher, writer],
+    tasks=tasks,
+    callbacks=[guard],  # every tool output scanned before the LLM sees it
+)
+
+try:
+    result = crew.kickoff(inputs={"topic": "indirect prompt injection"})
+except InjectionDetectedError as e:
+    print(f"Crew blocked an injection: score={e.result.score:.4f} id={e.result.id}")
+```
+
+## What gets scanned
+
+Every tool result returned to the LLM inside any agent of the crew. System prompts and agent-to-agent messages (the `assistant` role) are not scanned; they're inside your trust boundary.
+
+## Common pitfalls
+
+<AccordionGroup>
+  <Accordion title="My tool returns a dict / structured object, not a string">
+    BenchGuard only scans string content. If your tool returns a dict, convert to JSON before returning, or scan the relevant string field(s) manually with `guard.scan(text, role="tool")`.
+  </Accordion>
+
+  <Accordion title="I want different modes per agent">
+    Construct one `BenchGuard` per agent and attach each crew-by-crew. You can have some crews in `flag` mode for evaluation and others in `block` for production.
+  </Accordion>
+</AccordionGroup>

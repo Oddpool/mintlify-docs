@@ -1,0 +1,80 @@
+---
+title: "Roles"
+description: "Tell Benchspan where the content came from so it can apply the right classifier."
+---
+
+Every scan takes a `role` parameter. The role tells Benchspan whether the content came from a user (the person interacting with your agent) or from a tool (a function call result, document fetch, API response, email body, etc.).
+
+## Supported roles
+
+| Role | When to use |
+|---|---|
+| `user` | Message directly from the end user of your agent |
+| `tool` | Content returned by a function call, MCP tool, document reader, browser, etc. |
+
+The classifier weights patterns differently per role. Tool-origin content is the dominant attack vector for agents (IPI hiding in scraped web pages, emails, docs), and the model has been trained specifically on that distribution.
+
+<Info>
+  **Not scanned:** `system` (your own instructions) and `assistant` (the model's own output). These are your trust boundary. The framework integrations skip them automatically.
+</Info>
+
+## What to pass
+
+<CodeGroup>
+
+```python Python
+# User-origin content
+guard.scan("Please cancel my subscription", role="user")
+
+# Tool-origin content (email body, Drive doc, API response, etc.)
+email_body = gmail.get_email(id=123).body
+guard.scan(email_body, role="tool")
+```
+
+```typescript TypeScript
+// User-origin content
+await guard.scan("Please cancel my subscription", { role: "user" });
+
+// Tool-origin content
+const emailBody = (await gmail.getEmail(123)).body;
+await guard.scan(emailBody, { role: "tool" });
+```
+
+</CodeGroup>
+
+## The `source` field
+
+An optional `source` lets you tag **which tool** the content came from. It shows up in the dashboard so you can see which tools produce the most injections.
+
+<CodeGroup>
+
+```python Python
+guard.scan(email_body, role="tool", source="gmail.get_email")
+guard.scan(page_html, role="tool", source="browser.navigate")
+```
+
+```typescript TypeScript
+await guard.scan(emailBody, { role: "tool", source: "gmail.get_email" });
+await guard.scan(pageHtml, { role: "tool", source: "browser.navigate" });
+```
+
+</CodeGroup>
+
+When you use a framework integration (LangChain, OpenAI Agents, etc.) and your tool has a `name`, the SDK auto-populates `source` for you.
+
+## The `agent` field
+
+When constructing `BenchGuard`, pass `agent="my-agent-name"` to tag every scan with the agent identifier. This lets you filter usage per agent in the dashboard. Useful if you run multiple distinct agents on the same workspace.
+
+<CodeGroup>
+
+```python Python
+guard = BenchGuard(api_key="ag_live_...", agent="email-assistant")
+# All scans from this instance are tagged agent="email-assistant"
+```
+
+```typescript TypeScript
+const guard = new BenchGuard({ apiKey: "ag_live_...", agent: "email-assistant" });
+```
+
+</CodeGroup>
