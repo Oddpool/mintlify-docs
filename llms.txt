@@ -1,0 +1,45 @@
+# Benchspan
+
+> The prompt injection firewall for AI agents. Scan tool outputs and user messages before they reach your model. Free up to 50,000 requests per month.
+
+Benchspan is a real-time classifier trained on adversarial traffic targeting production AI agents. It catches indirect prompt injection (IPI) hiding in tool outputs, HTML pages, emails, and RAG documents, in addition to user-side jailbreaks. The SDK integrates as a callback, hook, or middleware into LangChain, CrewAI, OpenAI Agents SDK, Vercel AI SDK, and Google ADK, or wraps raw OpenAI / Anthropic SDK calls directly.
+
+The classifier returns a verdict (`block`, `flag`, or `pass`) plus a confidence score. In `block` mode the SDK raises `InjectionDetectedError` before the LLM call happens, so the model never sees poisoned content. In `flag` mode it logs a warning but lets the call proceed, useful during evaluation.
+
+## Getting Started
+
+- [Introduction](https://docs.benchspan.com/index.md): What Benchspan is and how it fits in your agent loop
+- [Quickstart](https://docs.benchspan.com/quickstart.md): From sign-up to your first scan in under two minutes
+
+## Concepts
+
+- [How it works](https://docs.benchspan.com/concepts/how-it-works.md): Threat model, what gets scanned, and the verdict shape
+- [Modes](https://docs.benchspan.com/concepts/modes.md): Block vs flag operation and a recommended rollout
+- [Roles](https://docs.benchspan.com/concepts/roles.md): `user` vs `tool` roles and how the classifier weights them
+
+## SDKs
+
+- [Python SDK](https://docs.benchspan.com/sdks/python.md): Full reference for the `benchspan` package
+- [TypeScript SDK](https://docs.benchspan.com/sdks/typescript.md): Full reference for `@benchspan/sdk`
+
+## Framework Integrations
+
+- [LangChain](https://docs.benchspan.com/integrations/langchain.md): Callback handler, Python + TypeScript
+- [CrewAI](https://docs.benchspan.com/integrations/crewai.md): Crew-level callback, Python
+- [OpenAI Agents SDK](https://docs.benchspan.com/integrations/openai-agents.md): Lifecycle hooks on tool output, Python + TypeScript
+- [Vercel AI SDK](https://docs.benchspan.com/integrations/vercel-ai.md): Language-model middleware
+- [Google ADK](https://docs.benchspan.com/integrations/google-adk.md): `before_model_callback`
+- [OpenAI SDK (raw)](https://docs.benchspan.com/integrations/openai.md): Decorator / `wrapCall`
+- [Anthropic SDK (raw)](https://docs.benchspan.com/integrations/anthropic.md): Decorator / `wrapCall`
+
+## API Reference
+
+- [Overview](https://docs.benchspan.com/api-reference/overview.md): Base URL, conventions, and rate limits
+- [Authentication](https://docs.benchspan.com/api-reference/authentication.md): Bearer API keys
+- [Scan](https://docs.benchspan.com/api-reference/scan.md): `POST /v1/scan` request and response fields
+- [Errors](https://docs.benchspan.com/api-reference/errors.md): HTTP codes, retry strategy, fail-open vs fail-closed
+
+## Optional
+
+- [Dashboard](https://benchspan.com/dashboard): Usage metrics, API key management, logs
+- [Talk to us](mailto:founders@benchspan.com): Enterprise, high-volume, or custom model needs
