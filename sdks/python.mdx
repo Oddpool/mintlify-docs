@@ -19,7 +19,7 @@ from benchspan import BenchGuard
 guard = BenchGuard(
     api_key="ag_live_...",           # required
     agent="email-agent",              # optional: tags scans in dashboard
-    mode="block",                     # optional: "block" (default) or "flag"
+    mode="block",                     # optional: "block" (default) or "warn"
     api_url="https://api.benchspan.com",  # optional: override for self-hosted
 )
 ```
@@ -34,8 +34,8 @@ guard = BenchGuard(
   Optional label to tag every scan from this instance. Useful for filtering per-agent traffic in the dashboard.
 </ResponseField>
 
-<ResponseField name="mode" type='"block" | "flag"' default='"block"'>
-  In block mode, callbacks/hooks raise `InjectionDetectedError` on detection. In flag mode, they log a warning and let the call proceed. See [Modes](/concepts/modes).
+<ResponseField name="mode" type='"block" | "warn"' default='"block"'>
+  In block mode, callbacks/hooks raise `InjectionDetectedError` on detection (synchronous scan; adds typical sub-100ms scan latency). In warn mode, the scan runs in a daemon thread and the LLM call proceeds with zero added latency; detections land in your dashboard asynchronously. See [Modes](/concepts/modes).
 </ResponseField>
 
 <ResponseField name="api_url" type="str" default="https://api.benchspan.com">
@@ -53,7 +53,7 @@ result = guard.scan("some text", role="tool", source="gmail.get_email")
 
 # result.injection      → bool
 # result.score          → float, 0–1
-# result.verdict        → "block" | "flag" | "pass"
+# result.verdict        → "block" | "warn" | "pass"
 # result.model_version  → str
 # result.latency_ms     → int
 # result.id             → str (UUID)
@@ -140,7 +140,7 @@ class ScanResult:
     id: str
     injection: bool
     score: float
-    verdict: str  # "block" | "flag" | "pass"
+    verdict: str  # "block" | "warn" | "pass"
     model_version: str
     latency_ms: int
 ```
@@ -165,7 +165,7 @@ except InjectionDetectedError as e:
 
 ## Logging
 
-The SDK logs to the `benchspan` logger. Attach a handler to see `flag` warnings and debug output:
+The SDK logs to the `benchspan` logger. Attach a handler to see `warn` detections and debug output:
 
 ```python
 import logging

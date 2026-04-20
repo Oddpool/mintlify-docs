@@ -146,7 +146,7 @@ description: "From signup to your first blocked injection in under 2 minutes."
 
 ## What happens next
 
-When your agent runs in production, every tool output and user message flows through Benchspan. By default it uses **block mode**: if an injection is detected, the SDK raises `InjectionDetectedError` before your LLM is called. You can switch to **flag mode** during evaluation to log injections without blocking; see [Modes](/concepts/modes).
+When your agent runs in production, every tool output and user message flows through Benchspan. By default it uses **block mode**: if an injection is detected, the SDK raises `InjectionDetectedError` before your LLM is called. You can switch to **warn mode** during evaluation to log injections without blocking, with zero added latency on the LLM call; see [Modes](/concepts/modes).
 
 All scans show up in real time on your [dashboard](https://benchspan.com/dashboard): request count, block rate, latency percentiles, and per-agent breakdowns.
 
@@ -206,10 +206,10 @@ Every scan returns three fields (plus metadata):
 |---|---|---|
 | `injection` | `boolean` | `true` if the input is classified as an injection |
 | `score` | `number` (0–1) | Model confidence. Scores above 0.5 are classified as injections. |
-| `verdict` | `"block" \| "flag" \| "pass"` | Final action based on your `mode` and the score |
+| `verdict` | `"block" \| "warn" \| "pass"` | Final action based on your `mode` and the score |
 
 In **block mode** (default), an injection raises `InjectionDetectedError` before your LLM call happens.
-In **flag mode**, the call proceeds but a warning is logged. See [Modes](/concepts/modes).
+In **warn mode**, the scan runs in the background and the LLM call proceeds immediately with zero added latency; the verdict still lands in your dashboard. See [Modes](/concepts/modes).
 
 ## What Benchspan detects
 
@@ -235,14 +235,14 @@ See [/benchmarks](https://benchspan.com/#benchmarks) for head-to-head numbers vs
 
 ---
 title: "Modes"
-description: "Block vs flag: when to use each."
+description: "Block vs warn: when to use each."
 ---
 
 Benchspan has two operating modes. You pick one when constructing the SDK; it applies to every scan from that instance.
 
 ## `block` (default)
 
-If an injection is detected, the SDK raises an exception **before** the LLM call happens. The model never sees the poisoned content.
+The SDK waits for the scan result. If an injection is detected, it raises an exception **before** the LLM call happens; the model never sees the poisoned content. Adds the scan latency (typically sub-100ms on tool outputs) to your agent's critical path.
 
 <CodeGroup>
 
@@ -276,46 +276,51 @@ try {
 
 Use `block` in production. It's the default for a reason: an injection that reaches the LLM is already damage, even if you catch it in logs afterwards.
 
-## `flag`
+## `warn`
 
-The SDK logs a warning but lets the call through. Useful for:
+**Zero latency.** The SDK fires the scan in the background (daemon thread in Python, unawaited Promise in TypeScript) and the LLM call proceeds immediately with no added wait. Detection still happens; the verdict lands in your dashboard logs asynchronously and a warning is logged locally, but the agent never pauses.
 
-- **Evaluating false-positive rate** on your real traffic before enforcing
-- **Shadow deployments**: running Benchspan in parallel with your existing controls
-- **Custom handling**: when you want to annotate the response or take a softer action (e.g., increase monitoring) instead of blocking outright
+Useful for:
+
+- **Evaluating false-positive rate** on real traffic before enforcing. You see every would-be block in the dashboard without affecting production latency.
+- **Shadow deployments**: running Benchspan in parallel with your existing controls to compare coverage.
+- **Latency-critical agents** where you'd rather observe than block. Voice, real-time chat, any flow where even a sub-100ms stall matters.
 
 <CodeGroup>
 
 ```python Python
-guard = BenchGuard(api_key="ag_live_...", mode="flag")
+guard = BenchGuard(api_key="ag_live_...", mode="warn")
 
 result = llm.invoke(messages, config={"callbacks": [guard]})
-# Injection is detected and logged to stderr; LLM call proceeds.
+# Returns immediately. Scan runs in a daemon thread and logs a warning
+# (+ updates the dashboard) if an injection is detected.
 ```
 
 ```typescript TypeScript
-const guard = new BenchGuard({ apiKey: "ag_live_...", mode: "flag" });
+const guard = new BenchGuard({ apiKey: "ag_live_...", mode: "warn" });
 
-const result = await guard.scan(toolOutput, { role: "tool" });
-if (result.verdict === "flag") {
-  console.warn(`Suspicious but not blocked: ${result.score}`);
-}
-// Your LLM call proceeds with the original content.
+// Your LLM call proceeds with zero added latency. The scan runs in the
+// background and any injection lands in your dashboard.
+const result = await llm.generate(prompt);
 ```
 
 </CodeGroup>
 
+<Note>
+  Warn mode is fire-and-forget. If you explicitly call `guard.scan(...)` and `await` it, you get the synchronous verdict back; the zero-latency behavior only applies to the framework integrations (callbacks, hooks, middleware).
+</Note>
+
 ## Recommended rollout
 
 <Steps>
-  <Step title="Start in flag mode">
-    Deploy with `mode="flag"`. Watch your dashboard for false positives on real traffic for a few days.
+  <Step title="Start in warn mode">
+    Deploy with `mode="warn"`. Watch your dashboard for injections and false positives on real traffic for a few days. No user-visible latency impact.
   </Step>
   <Step title="Tune if needed">
     If you see legitimate content being flagged, send us a sample at <a href="mailto:founders@benchspan.com">founders@benchspan.com</a>. For high-volume deployments, we can train a custom model on your traffic; reach out.
   </Step>
   <Step title="Switch to block">
-    Once your false-positive rate is acceptable, flip `mode="block"`. Same SDK, one-line change.
+    Once your false-positive rate is acceptable and the latency budget allows it, flip `mode="block"`. Same SDK, one-line change.
   </Step>
 </Steps>
 
@@ -435,7 +440,7 @@ from benchspan import BenchGuard
 guard = BenchGuard(
     api_key="ag_live_...",           # required
     agent="email-agent",              # optional: tags scans in dashboard
-    mode="block",                     # optional: "block" (default) or "flag"
+    mode="block",                     # optional: "block" (default) or "warn"
     api_url="https://api.benchspan.com",  # optional: override for self-hosted
 )
 ```
@@ -450,8 +455,8 @@ guard = BenchGuard(
   Optional label to tag every scan from this instance. Useful for filtering per-agent traffic in the dashboard.
 </ResponseField>
 
-<ResponseField name="mode" type='"block" | "flag"' default='"block"'>
-  In block mode, callbacks/hooks raise `InjectionDetectedError` on detection. In flag mode, they log a warning and let the call proceed. See [Modes](/concepts/modes).
+<ResponseField name="mode" type='"block" | "warn"' default='"block"'>
+  In block mode, callbacks/hooks raise `InjectionDetectedError` on detection (synchronous scan; adds typical sub-100ms scan latency). In warn mode, the scan runs in a daemon thread and the LLM call proceeds with zero added latency; detections land in your dashboard asynchronously. See [Modes](/concepts/modes).
 </ResponseField>
 
 <ResponseField name="api_url" type="str" default="https://api.benchspan.com">
@@ -469,7 +474,7 @@ result = guard.scan("some text", role="tool", source="gmail.get_email")
 
 # result.injection      → bool
 # result.score          → float, 0–1
-# result.verdict        → "block" | "flag" | "pass"
+# result.verdict        → "block" | "warn" | "pass"
 # result.model_version  → str
 # result.latency_ms     → int
 # result.id             → str (UUID)
@@ -556,7 +561,7 @@ class ScanResult:
     id: str
     injection: bool
     score: float
-    verdict: str  # "block" | "flag" | "pass"
+    verdict: str  # "block" | "warn" | "pass"
     model_version: str
     latency_ms: int
 ```
@@ -581,7 +586,7 @@ except InjectionDetectedError as e:
 
 ## Logging
 
-The SDK logs to the `benchspan` logger. Attach a handler to see `flag` warnings and debug output:
+The SDK logs to the `benchspan` logger. Attach a handler to see `warn` detections and debug output:
 
 ```python
 import logging
@@ -618,7 +623,7 @@ import { BenchGuard } from "@benchspan/sdk";
 const guard = new BenchGuard({
   apiKey: "ag_live_...",     // required
   agent: "email-agent",       // optional: tags scans in dashboard
-  mode: "block",              // optional: "block" (default) or "flag"
+  mode: "block",              // optional: "block" (default) or "warn"
   apiUrl: "https://api.benchspan.com",  // optional: override for self-hosted
 });
 ```
@@ -633,8 +638,8 @@ const guard = new BenchGuard({
   Optional label to tag every scan from this instance.
 </ResponseField>
 
-<ResponseField name="mode" type='"block" | "flag"' default='"block"'>
-  In block mode, `scanOrThrow` throws `InjectionDetectedError` on injection. Framework integrations use `scanOrThrow` internally, so block mode aborts before the LLM call.
+<ResponseField name="mode" type='"block" | "warn"' default='"block"'>
+  In block mode, `scanOrThrow` throws `InjectionDetectedError` on injection. Framework integrations (`asAgentHooks`, `asLangChainCallback`, `asMiddleware`, `asAdkCallback`) use `scanOrThrow` internally, so block mode aborts before the LLM call. In warn mode, those integrations fire the scan as an unawaited Promise so your LLM call proceeds with zero added latency; detections land in your dashboard asynchronously.
 </ResponseField>
 
 <ResponseField name="apiUrl" type="string" default="https://api.benchspan.com">
@@ -651,7 +656,7 @@ Scan a single string. Returns the verdict; does **not** throw on injection.
 const result = await guard.scan("some text", { role: "user" });
 // result.injection      → boolean
 // result.score          → number, 0–1
-// result.verdict        → "block" | "flag" | "pass"
+// result.verdict        → "block" | "warn" | "pass"
 // result.model_version  → string
 // result.latency_ms     → number
 // result.id             → string (UUID)
@@ -659,7 +664,7 @@ const result = await guard.scan("some text", { role: "user" });
 
 ### `guard.scanOrThrow(input, options?) → Promise<ScanResult>`
 
-Same as `scan`, but throws `InjectionDetectedError` when the verdict is `block` (in block mode) and logs a warning when it's `flag`.
+Same as `scan`, but throws `InjectionDetectedError` when the verdict is `block` (in block mode) and logs a warning when it's `warn`. Always synchronous; use the framework integrations for zero-latency warn-mode behavior.
 
 ```typescript
 try {
@@ -720,7 +725,7 @@ interface ScanResult {
   id: string;
   injection: boolean;
   score: number;
-  verdict: "block" | "flag" | "pass";
+  verdict: "block" | "warn" | "pass";
   model_version: string;
   latency_ms: number;
 }
@@ -732,7 +737,7 @@ interface ScanResult {
 interface BenchGuardConfig {
   apiKey: string;
   agent?: string;
-  mode?: "block" | "flag";
+  mode?: "block" | "warn";
   apiUrl?: string;
 }
 ```
@@ -944,7 +949,7 @@ Every tool result returned to the LLM inside any agent of the crew. System promp
   </Accordion>
 
   <Accordion title="I want different modes per agent">
-    Construct one `BenchGuard` per agent and attach each crew-by-crew. You can have some crews in `flag` mode for evaluation and others in `block` for production.
+    Construct one `BenchGuard` per agent and attach each crew-by-crew. You can have some crews in `warn` mode for evaluation and others in `block` for production.
   </Accordion>
 </AccordionGroup>
 
@@ -1676,8 +1681,8 @@ POST /v1/scan
   Where the text came from. Tool-origin content (API responses, email bodies, HTML pages, docs) is the dominant attack vector for agents and has a dedicated classifier path.
 </ParamField>
 
-<ParamField body="mode" type='"block" | "flag"' default='"block"'>
-  Controls the returned `verdict`. In `block` mode, injections return `"verdict": "block"`. In `flag` mode, they return `"verdict": "flag"` (non-injections return `"pass"` in both modes). Does not affect the HTTP response; the API never throws on injection. Your client decides what to do.
+<ParamField body="mode" type='"block" | "warn"' default='"block"'>
+  Controls the returned `verdict`. In `block` mode, injections return `"verdict": "block"`. In `warn` mode, they return `"verdict": "warn"` (non-injections return `"pass"` in both modes). Does not affect the HTTP response; the API never throws on injection. Your client decides what to do. Note: the SDK exposes zero-latency behavior for `warn` mode by running the scan in the background. If you call this HTTP endpoint directly, you always wait for the response.
 </ParamField>
 
 <ParamField body="source" type="string">
@@ -1702,9 +1707,9 @@ POST /v1/scan
   Model confidence between 0.0 and 1.0. Values near 0 = confidently benign; values near 1 = confidently injection.
 </ResponseField>
 
-<ResponseField name="verdict" type='"block" | "flag" | "pass"'>
+<ResponseField name="verdict" type='"block" | "warn" | "pass"'>
   - `"block"`: injection detected, mode was `"block"`. Client should abort.
-  - `"flag"`: injection detected, mode was `"flag"`. Client should warn but proceed.
+  - `"warn"`: injection detected, mode was `"warn"`. Client should log but proceed.
   - `"pass"`: benign.
 </ResponseField>
 

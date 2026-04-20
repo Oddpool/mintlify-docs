@@ -49,10 +49,10 @@ Every scan returns three fields (plus metadata):
 |---|---|---|
 | `injection` | `boolean` | `true` if the input is classified as an injection |
 | `score` | `number` (0–1) | Model confidence. Scores above 0.5 are classified as injections. |
-| `verdict` | `"block" \| "flag" \| "pass"` | Final action based on your `mode` and the score |
+| `verdict` | `"block" \| "warn" \| "pass"` | Final action based on your `mode` and the score |
 
 In **block mode** (default), an injection raises `InjectionDetectedError` before your LLM call happens.
-In **flag mode**, the call proceeds but a warning is logged. See [Modes](/concepts/modes).
+In **warn mode**, the scan runs in the background and the LLM call proceeds immediately with zero added latency; the verdict still lands in your dashboard. See [Modes](/concepts/modes).
 
 ## What Benchspan detects
 

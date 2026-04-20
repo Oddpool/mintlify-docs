@@ -85,8 +85,8 @@ POST /v1/scan
   Where the text came from. Tool-origin content (API responses, email bodies, HTML pages, docs) is the dominant attack vector for agents and has a dedicated classifier path.
 </ParamField>
 
-<ParamField body="mode" type='"block" | "flag"' default='"block"'>
-  Controls the returned `verdict`. In `block` mode, injections return `"verdict": "block"`. In `flag` mode, they return `"verdict": "flag"` (non-injections return `"pass"` in both modes). Does not affect the HTTP response; the API never throws on injection. Your client decides what to do.
+<ParamField body="mode" type='"block" | "warn"' default='"block"'>
+  Controls the returned `verdict`. In `block` mode, injections return `"verdict": "block"`. In `warn` mode, they return `"verdict": "warn"` (non-injections return `"pass"` in both modes). Does not affect the HTTP response; the API never throws on injection. Your client decides what to do. Note: the SDK exposes zero-latency behavior for `warn` mode by running the scan in the background. If you call this HTTP endpoint directly, you always wait for the response.
 </ParamField>
 
 <ParamField body="source" type="string">
@@ -111,9 +111,9 @@ POST /v1/scan
   Model confidence between 0.0 and 1.0. Values near 0 = confidently benign; values near 1 = confidently injection.
 </ResponseField>
 
-<ResponseField name="verdict" type='"block" | "flag" | "pass"'>
+<ResponseField name="verdict" type='"block" | "warn" | "pass"'>
   - `"block"`: injection detected, mode was `"block"`. Client should abort.
-  - `"flag"`: injection detected, mode was `"flag"`. Client should warn but proceed.
+  - `"warn"`: injection detected, mode was `"warn"`. Client should log but proceed.
   - `"pass"`: benign.
 </ResponseField>
 

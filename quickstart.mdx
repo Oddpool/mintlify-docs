@@ -80,6 +80,6 @@ description: "From signup to your first blocked injection in under 2 minutes."
 
 ## What happens next
 
-When your agent runs in production, every tool output and user message flows through Benchspan. By default it uses **block mode**: if an injection is detected, the SDK raises `InjectionDetectedError` before your LLM is called. You can switch to **flag mode** during evaluation to log injections without blocking; see [Modes](/concepts/modes).
+When your agent runs in production, every tool output and user message flows through Benchspan. By default it uses **block mode**: if an injection is detected, the SDK raises `InjectionDetectedError` before your LLM is called. You can switch to **warn mode** during evaluation to log injections without blocking, with zero added latency on the LLM call; see [Modes](/concepts/modes).
 
 All scans show up in real time on your [dashboard](https://benchspan.com/dashboard): request count, block rate, latency percentiles, and per-agent breakdowns.

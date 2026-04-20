@@ -19,7 +19,7 @@ import { BenchGuard } from "@benchspan/sdk";
 const guard = new BenchGuard({
   apiKey: "ag_live_...",     // required
   agent: "email-agent",       // optional: tags scans in dashboard
-  mode: "block",              // optional: "block" (default) or "flag"
+  mode: "block",              // optional: "block" (default) or "warn"
   apiUrl: "https://api.benchspan.com",  // optional: override for self-hosted
 });
 ```
@@ -34,8 +34,8 @@ const guard = new BenchGuard({
   Optional label to tag every scan from this instance.
 </ResponseField>
 
-<ResponseField name="mode" type='"block" | "flag"' default='"block"'>
-  In block mode, `scanOrThrow` throws `InjectionDetectedError` on injection. Framework integrations use `scanOrThrow` internally, so block mode aborts before the LLM call.
+<ResponseField name="mode" type='"block" | "warn"' default='"block"'>
+  In block mode, `scanOrThrow` throws `InjectionDetectedError` on injection. Framework integrations (`asAgentHooks`, `asLangChainCallback`, `asMiddleware`, `asAdkCallback`) use `scanOrThrow` internally, so block mode aborts before the LLM call. In warn mode, those integrations fire the scan as an unawaited Promise so your LLM call proceeds with zero added latency; detections land in your dashboard asynchronously.
 </ResponseField>
 
 <ResponseField name="apiUrl" type="string" default="https://api.benchspan.com">
@@ -52,7 +52,7 @@ Scan a single string. Returns the verdict; does **not** throw on injection.
 const result = await guard.scan("some text", { role: "user" });
 // result.injection      → boolean
 // result.score          → number, 0–1
-// result.verdict        → "block" | "flag" | "pass"
+// result.verdict        → "block" | "warn" | "pass"
 // result.model_version  → string
 // result.latency_ms     → number
 // result.id             → string (UUID)
@@ -60,7 +60,7 @@ const result = await guard.scan("some text", { role: "user" });
 
 ### `guard.scanOrThrow(input, options?) → Promise<ScanResult>`
 
-Same as `scan`, but throws `InjectionDetectedError` when the verdict is `block` (in block mode) and logs a warning when it's `flag`.
+Same as `scan`, but throws `InjectionDetectedError` when the verdict is `block` (in block mode) and logs a warning when it's `warn`. Always synchronous; use the framework integrations for zero-latency warn-mode behavior.
 
 ```typescript
 try {
@@ -121,7 +121,7 @@ interface ScanResult {
   id: string;
   injection: boolean;
   score: number;
-  verdict: "block" | "flag" | "pass";
+  verdict: "block" | "warn" | "pass";
   model_version: string;
   latency_ms: number;
 }
@@ -133,7 +133,7 @@ interface ScanResult {
 interface BenchGuardConfig {
   apiKey: string;
   agent?: string;
-  mode?: "block" | "flag";
+  mode?: "block" | "warn";
   apiUrl?: string;
 }
 ```

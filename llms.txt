@@ -4,7 +4,7 @@
 
 Benchspan is a real-time classifier trained on adversarial traffic targeting production AI agents. It catches indirect prompt injection (IPI) hiding in tool outputs, HTML pages, emails, and RAG documents, in addition to user-side jailbreaks. The SDK integrates as a callback, hook, or middleware into LangChain, CrewAI, OpenAI Agents SDK, Vercel AI SDK, and Google ADK, or wraps raw OpenAI / Anthropic SDK calls directly.
 
-The classifier returns a verdict (`block`, `flag`, or `pass`) plus a confidence score. In `block` mode the SDK raises `InjectionDetectedError` before the LLM call happens, so the model never sees poisoned content. In `flag` mode it logs a warning but lets the call proceed, useful during evaluation.
+The classifier returns a verdict (`block`, `warn`, or `pass`) plus a confidence score. In `block` mode the SDK raises `InjectionDetectedError` before the LLM call happens, so the model never sees poisoned content. In `warn` mode the scan runs in the background and the LLM call proceeds with zero added latency; detections still land in the dashboard. Useful during evaluation.
 
 ## Getting Started
 
@@ -14,7 +14,7 @@ The classifier returns a verdict (`block`, `flag`, or `pass`) plus a confidence 
 ## Concepts
 
 - [How it works](https://docs.benchspan.com/concepts/how-it-works.md): Threat model, what gets scanned, and the verdict shape
-- [Modes](https://docs.benchspan.com/concepts/modes.md): Block vs flag operation and a recommended rollout
+- [Modes](https://docs.benchspan.com/concepts/modes.md): Block vs warn operation and a recommended rollout
 - [Roles](https://docs.benchspan.com/concepts/roles.md): `user` vs `tool` roles and how the classifier weights them
 
 ## SDKs
